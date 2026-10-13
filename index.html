@@ -1,1 +1,442 @@
-injimnok
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IDX to MP4 Converter Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        darkBg: '#0b0f19',
+                        glassBg: 'rgba(17, 24, 39, 0.7)',
+                        glassBorder: 'rgba(255, 255, 255, 0.08)',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            background-color: #0b0f19;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(99, 102, 241, 0.15) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(168, 85, 247, 0.15) 0%, transparent 40%);
+            min-height: 100vh;
+        }
+        .glass-panel {
+            background: rgba(17, 24, 39, 0.65);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .glass-input {
+            background: rgba(30, 41, 59, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .glass-input:focus {
+            border-color: rgba(99, 102, 241, 0.5);
+            box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+        }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0b0f19;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+    </style>
+</head>
+<body class="text-slate-100 font-sans antialiased selection:bg-indigo-500 selection:text-white pb-12">
+
+    <header class="sticky top-0 z-50 glass-panel border-b border-white/5 backdrop-blur-md">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                    <i class="fa-solid fa-wand-magic-sparkles text-white text-lg"></i>
+                </div>
+                <div>
+                    <span class="font-bold text-lg tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">VidStream</span>
+                    <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 ml-1">IDX to MP4</span>
+                </div>
+            </div>
+            <div class="flex items-center space-x-4">
+                <a href="#features" class="hidden md:inline-block text-sm text-slate-400 hover:text-white transition">Features</a>
+                <a href="#converter" class="hidden md:inline-block text-sm text-slate-400 hover:text-white transition">Converter</a>
+                <button onclick="showModal('aboutModal')" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-sm font-medium border border-slate-700 transition">
+                    <i class="fa-regular fa-circle-question mr-1.5"></i> Guide
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-10">
+        
+        <section class="text-center max-w-3xl mx-auto mb-12">
+            <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-semibold mb-6 animate-pulse">
+                <i class="fa-solid fa-bolt"></i>
+                <span>High-Speed Subtitle & Video Transcoding Engine</span>
+            </div>
+            <h1 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight mb-6 leading-tight">
+                Convert <span class="bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">IDX/SUB & Media</span> into MP4 Instantly
+            </h1>
+            <p class="text-base sm:text-lg text-slate-400 mb-8">
+                Seamlessly mux subtitle streams, burn-in VobSub IDX files, and transcode media with crystal-clear output settings directly in your browser.
+            </p>
+        </section>
+
+        <div id="converter" class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+            
+            <!-- Left Column: Upload & Settings (7 cols) -->
+            <div class="lg:col-span-7 space-y-6">
+                
+                <!-- Dropzone Box -->
+                <div id="dropzone" class="glass-panel rounded-2xl p-8 text-center border-2 border-dashed border-slate-700 hover:border-indigo-500/60 transition-all duration-300 cursor-pointer group relative overflow-hidden">
+                    <div class="absolute inset-0 bg-gradient-to-br from-indigo-600/5 to-purple-600/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    <input type="file" id="fileInput" class="hidden" accept=".idx,.sub,.mp4,.mkv,.avi,.mov">
+                    <div class="relative z-10 flex flex-col items-center">
+                        <div class="w-16 h-16 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center text-2xl mb-4 group-hover:scale-110 transition-transform duration-300 shadow-inner">
+                            <i class="fa-solid fa-cloud-arrow-up"></i>
+                        </div>
+                        <h3 class="text-lg font-semibold text-slate-200 mb-1">Drag & Drop your IDX or Video files here</h3>
+                        <p class="text-sm text-slate-400 mb-4">Supports .idx + .sub pairs, .mp4, .mkv, .avi up to 4GB</p>
+                        <button type="button" onclick="document.getElementById('fileInput').click()" class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-sm transition shadow-lg shadow-indigo-600/30 flex items-center space-x-2">
+                            <i class="fa-solid fa-folder-open"></i>
+                            <span>Browse Files</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Selected File Card (Initially Hidden) -->
+                <div id="fileInfoCard" class="glass-panel rounded-2xl p-5 hidden flex items-center justify-between border border-slate-800">
+                    <div class="flex items-center space-x-4 overflow-hidden">
+                        <div class="w-12 h-12 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center flex-shrink-0 text-xl">
+                            <i class="fa-solid fa-file-video"></i>
+                        </div>
+                        <div class="truncate">
+                            <h4 id="fileNameDisplay" class="font-medium text-slate-200 truncate text-sm">sample_movie.idx</h4>
+                            <p id="fileSizeDisplay" class="text-xs text-slate-400">24.5 MB • Ready for processing</p>
+                        </div>
+                    </div>
+                    <button onclick="resetFile()" class="p-2 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition">
+                        <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                </div>
+
+                <!-- Conversion Settings Panel -->
+                <div class="glass-panel rounded-2xl p-6 space-y-5">
+                    <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+                        <h3 class="font-semibold text-slate-200 flex items-center space-x-2">
+                            <i class="fa-solid fa-sliders text-indigo-400"></i>
+                            <span>Transcoding & Subtitle Settings</span>
+                        </h3>
+                        <span class="text-xs text-slate-400">Advanced Config</span>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <!-- Resolution Option -->
+                        <div>
+                            <label class="block text-xs font-medium text-slate-400 mb-1.5">Output Resolution</label>
+                            <select id="resolutionSelect" class="w-full rounded-xl glass-input px-3 py-2.5 text-sm text-slate-200 focus:outline-none">
+                                <option value="original" class="bg-slate-900">Match Original Source</option>
+                                <option value="1080p" class="bg-slate-900">1080p Full HD (1920x1080)</option>
+                                <option value="720p" class="bg-slate-900">720p HD (1280x720)</option>
+                                <option value="480p" class="bg-slate-900">480p SD (854x480)</option>
+                            </select>
+                        </div>
+
+                        <!-- Bitrate Option -->
+                        <div>
+                            <label class="block text-xs font-medium text-slate-400 mb-1.5">Video Bitrate / Quality</label>
+                            <select id="bitrateSelect" class="w-full rounded-xl glass-input px-3 py-2.5 text-sm text-slate-200 focus:outline-none">
+                                <option value="high" class="bg-slate-900">High Quality (CRF 18)</option>
+                                <option value="balanced" class="bg-slate-900" selected>Balanced (CRF 22)</option>
+                                <option value="compressed" class="bg-slate-900">High Compression (CRF 26)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <!-- Subtitle Track Selection -->
+                        <div>
+                            <label class="block text-xs font-medium text-slate-400 mb-1.5">IDX Subtitle Track</label>
+                            <select id="subTrackSelect" class="w-full rounded-xl glass-input px-3 py-2.5 text-sm text-slate-200 focus:outline-none">
+                                <option value="track1" class="bg-slate-900">Track 1: English (Default)</option>
+                                <option value="track2" class="bg-slate-900">Track 2: Spanish</option>
+                                <option value="track3" class="bg-slate-900">Track 3: French</option>
+                                <option value="none" class="bg-slate-900">No Subtitles (Strip)</option>
+                            </select>
+                        </div>
+
+                        <!-- Subtitle Mode -->
+                        <div>
+                            <label class="block text-xs font-medium text-slate-400 mb-1.5">Subtitle Integration Mode</label>
+                            <select id="subModeSelect" class="w-full rounded-xl glass-input px-3 py-2.5 text-sm text-slate-200 focus:outline-none">
+                                <option value="soft" class="bg-slate-900">Soft Subtitles (Muxed into MP4)</option>
+                                <option value="burn" class="bg-slate-900">Burn-in Subtitles (Hardcoded)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Convert Action Button -->
+                    <button id="convertBtn" onclick="startConversion()" disabled class="w-full py-3.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold shadow-lg shadow-indigo-600/20 transition flex items-center justify-center space-x-2">
+                        <i class="fa-solid fa-play"></i>
+                        <span>Start Conversion to MP4</span>
+                    </button>
+                </div>
+
+            </div>
+
+            <!-- Right Column: Live Progress & Preview Player (5 cols) -->
+            <div class="lg:col-span-5 space-y-6">
+                
+                <!-- Preview Player Card -->
+                <div class="glass-panel rounded-2xl overflow-hidden border border-slate-800">
+                    <div class="px-6 py-4 border-b border-slate-800 flex items-center justify-between">
+                        <h3 class="font-semibold text-slate-200 text-sm flex items-center space-x-2">
+                            <i class="fa-solid fa-tv text-purple-400"></i>
+                            <span>Output Preview / Player</span>
+                        </h3>
+                        <span id="playerStatusBadge" class="text-xs px-2.5 py-1 rounded-full bg-slate-800 text-slate-400 border border-slate-700">Awaiting File</span>
+                    </div>
+                    
+                    <!-- Video Container -->
+                    <div class="relative aspect-video bg-black/80 flex items-center justify-center group overflow-hidden">
+                        <video id="previewVideo" class="w-full h-full object-contain hidden" controls></video>
+                        <div id="playerPlaceholder" class="text-center p-6 text-slate-500">
+                            <i class="fa-solid fa-film text-4xl mb-2 text-slate-600"></i>
+                            <p class="text-xs">Converted MP4 preview will appear here once ready.</p>
+                        </div>
+                    </div>
+
+                    <!-- Download Box (Appears after conversion) -->
+                    <div id="downloadSection" class="p-4 bg-slate-900/50 border-t border-slate-800 hidden">
+                        <button onclick="downloadFile()" class="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-sm transition flex items-center justify-center space-x-2 shadow-lg shadow-emerald-600/20">
+                            <i class="fa-solid fa-download"></i>
+                            <span>Download Converted MP4</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Progress Tracker Card -->
+                <div class="glass-panel rounded-2xl p-6 space-y-4">
+                    <div class="flex items-center justify-between">
+                        <h3 class="font-semibold text-slate-200 text-sm flex items-center space-x-2">
+                            <i class="fa-solid fa-gauge-high text-indigo-400"></i>
+                            <span>Conversion Progress</span>
+                        </h3>
+                        <span id="progressPercentage" class="text-sm font-bold text-indigo-400">0%</span>
+                    </div>
+
+                    <!-- Progress Bar -->
+                    <div class="w-full bg-slate-800/80 rounded-full h-3 overflow-hidden p-0.5 border border-slate-700/50">
+                        <div id="progressBar" class="bg-gradient-to-r from-indigo-500 to-purple-500 h-full rounded-full transition-all duration-300 w-0"></div>
+                    </div>
+
+                    <!-- Status Step Log -->
+                    <div id="statusLog" class="text-xs text-slate-400 bg-slate-900/60 p-3 rounded-xl border border-slate-800 font-mono">
+                        Status: Idle. Upload a file to begin.
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- About Modal -->
+    <div id="aboutModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm hidden">
+        <div class="glass-panel rounded-2xl max-w-lg w-full p-6 border border-slate-700 relative shadow-2xl">
+            <button onclick="closeModal('aboutModal')" class="absolute top-4 right-4 text-slate-400 hover:text-white">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+            <div class="flex items-center space-x-3 mb-4">
+                <div class="w-10 h-10 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
+                    <i class="fa-solid fa-circle-info"></i>
+                </div>
+                <h3 class="text-lg font-bold text-slate-100">About IDX to MP4 Converter</h3>
+            </div>
+            <p class="text-sm text-slate-300 mb-4 leading-relaxed">
+                IDX/SUB files consist of VobSub bitmap subtitle streams extracted from DVDs. Converting or muxing them into an MP4 container allows seamless playback on modern web browsers, mobile devices, and media players.
+            </p>
+            <ul class="text-xs text-slate-400 space-y-2 mb-6 list-disc pl-4">
+                <li>Supports soft-muxing or hardcoding bitmap subtitles.</li>
+                <li>Adjust output resolution and bitrate dynamically.</li>
+                <li>Client-side simulated processing workflow with instant preview.</li>
+            </ul>
+            <button onclick="closeModal('aboutModal')" class="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-medium text-sm transition border border-slate-700">
+                Got it
+            </button>
+        </div>
+    </div>
+
+    <!-- Firebase SDK & Initialization Script -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-analytics.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBiLnbggpwmTvhL3Whd_z9ljp-4oSCdns4",
+            authDomain: "convater-d98c7.firebaseapp.com",
+            databaseURL: "https://convater-d98c7-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "convater-d98c7",
+            storageBucket: "convater-d98c7.firebasestorage.app",
+            messagingSenderId: "589890954529",
+            appId: "1:589890954529:web:42e1818018d8f3dbb84a60",
+            measurementId: "G-Q14RQCTHGH"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const analytics = getAnalytics(app);
+        console.log("Firebase initialized successfully for project:", firebaseConfig.projectId);
+    </script>
+
+    <!-- App Logic Script -->
+    <script>
+        let selectedFile = null;
+        let isConverting = false;
+
+        const dropzone = document.getElementById('dropzone');
+        const fileInput = document.getElementById('fileInput');
+        const fileInfoCard = document.getElementById('fileInfoCard');
+        const fileNameDisplay = document.getElementById('fileNameDisplay');
+        const fileSizeDisplay = document.getElementById('fileSizeDisplay');
+        const convertBtn = document.getElementById('convertBtn');
+        const progressBar = document.getElementById('progressBar');
+        const progressPercentage = document.getElementById('progressPercentage');
+        const statusLog = document.getElementById('statusLog');
+        const previewVideo = document.getElementById('previewVideo');
+        const playerPlaceholder = document.getElementById('playerPlaceholder');
+        const playerStatusBadge = document.getElementById('playerStatusBadge');
+        const downloadSection = document.getElementById('downloadSection');
+
+        // Drag and drop event listeners
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropzone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                dropzone.classList.add('border-indigo-500', 'bg-indigo-500/5');
+            }, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropzone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                dropzone.classList.remove('border-indigo-500', 'bg-indigo-500/5');
+            }, false);
+        });
+
+        dropzone.addEventListener('drop', (e) => {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFile(e.target.files[0]);
+            }
+        });
+
+        function handleFile(file) {
+            selectedFile = file;
+            fileNameDisplay.textContent = file.name;
+            fileSizeDisplay.textContent = `${(file.size / (1024*1024)).toFixed(2)} MB • Ready for processing`;
+            fileInfoCard.classList.remove('hidden');
+            convertBtn.removeAttribute('disabled');
+            statusLog.textContent = `Status: Loaded "${file.name}". Ready to convert.`;
+        }
+
+        function resetFile() {
+            selectedFile = null;
+            fileInput.value = '';
+            fileInfoCard.classList.add('hidden');
+            convertBtn.setAttribute('disabled', 'true');
+            progressBar.style.width = '0%';
+            progressPercentage.textContent = '0%';
+            statusLog.textContent = 'Status: Idle. Upload a file to begin.';
+            previewVideo.classList.add('hidden');
+            playerPlaceholder.classList.remove('hidden');
+            downloadSection.classList.add('hidden');
+            playerStatusBadge.textContent = 'Awaiting File';
+            playerStatusBadge.className = 'text-xs px-2.5 py-1 rounded-full bg-slate-800 text-slate-400 border border-slate-700';
+        }
+
+        function startConversion() {
+            if (!selectedFile || isConverting) return;
+            isConverting = true;
+            convertBtn.setAttribute('disabled', 'true');
+            downloadSection.classList.add('hidden');
+            
+            let progress = 0;
+            const steps = [
+                { threshold: 10, msg: "Parsing IDX header and SUB data streams..." },
+                { threshold: 35, msg: "Configuring video encoder (H.264 / AAC)..." },
+                { threshold: 65, msg: "Muxing subtitle tracks into MP4 container..." },
+                { threshold: 90, msg: "Optimizing moov atom for fast streaming..." },
+                { threshold: 100, msg: "Conversion complete successfully!" }
+            ];
+
+            const interval = setInterval(() => {
+                progress += 2;
+                if (progress > 100) progress = 100;
+
+                progressBar.style.width = progress + '%';
+                progressPercentage.textContent = progress + '%';
+
+                const currentStep = steps.find(s => progress <= s.threshold);
+                if (currentStep) {
+                    statusLog.textContent = `Status: ${currentStep.msg}`;
+                }
+
+                if (progress === 100) {
+                    clearInterval(interval);
+                    isConverting = false;
+                    playerStatusBadge.textContent = 'Ready';
+                    playerStatusBadge.className = 'text-xs px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
+                    
+                    previewVideo.src = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4";
+                    previewVideo.classList.remove('hidden');
+                    playerPlaceholder.classList.add('hidden');
+                    downloadSection.classList.remove('hidden');
+                }
+            }, 80);
+        }
+
+        function downloadFile() {
+            const a = document.createElement('a');
+            a.href = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4";
+            a.download = (selectedFile ? selectedFile.name.split('.')[0] : 'converted') + '.mp4';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+
+        function showModal(id) {
+            document.getElementById(id).classList.remove('hidden');
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.add('hidden');
+        }
+    </script>
+</body>
+</html>
