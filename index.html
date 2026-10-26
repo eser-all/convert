@@ -63,10 +63,13 @@
             border: 1px solid #ccc;
             padding: 8px 12px;
         }
+        /* Keep images properly aligned and responsive */
         .preview-content img {
-            max-width: 100%;
-            height: auto;
-            margin: 10px 0;
+            max-width: 100% !important;
+            height: auto !important;
+            display: block;
+            margin: 15px auto;
+            object-fit: contain;
         }
     </style>
 </head>
@@ -133,7 +136,7 @@
                         <h3 class="text-lg font-bold text-gray-800 mb-1">Word (.docx) ফাইল নির্বাচন করুন</h3>
                         <p class="text-xs sm:text-sm text-gray-500 mb-3">এখানে ক্লিক করুন অথবা ডক ফাইল টেনে আনুন</p>
                         <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-primary-700">
-                            .docx সমর্থিত
+                            .docx সমর্থিত (ছবিসহ)
                         </span>
                     </div>
                     <input type="file" id="wordFileInput" accept=".docx" class="hidden" onchange="convertWordToPdf()">
@@ -184,7 +187,7 @@
                     <div class="flex items-center justify-between">
                         <h4 class="font-bold text-gray-800 flex items-center gap-2 text-sm sm:text-base">
                             <i class="fa-solid fa-eye text-primary-500"></i>
-                            <span>টেক্সট প্রিভিউ ও এডিটর</span>
+                            <span>ডকুমেন্ট প্রিভিউ ও এডিটর</span>
                         </h4>
                         <div class="flex items-center gap-2">
                             <button onclick="copyExtractedText()" class="px-3 py-1.5 rounded-lg border border-gray-300 hover:bg-gray-100 text-gray-700 font-medium text-xs flex items-center gap-1.5 transition">
@@ -201,7 +204,7 @@
                     <!-- Editable Content Preview Container -->
                     <div id="outputPreview" 
                          contenteditable="true" 
-                         class="preview-content p-5 sm:p-6 bg-white border border-gray-300 rounded-xl max-h-96 overflow-y-auto focus:outline-none focus:ring-2 focus:ring-primary-500 shadow-inner">
+                         class="preview-content p-6 bg-white border border-gray-300 rounded-xl max-h-[500px] overflow-y-auto focus:outline-none focus:ring-2 focus:ring-primary-500 shadow-inner">
                     </div>
 
                     <!-- Action Bar -->
@@ -314,14 +317,14 @@
             hideLoader();
         }
 
-        // 1. WORD TO PDF CONVERSION
+        // 1. WORD TO PDF CONVERSION (Keeping Images & Layout Intact via Mammoth)
         async function convertWordToPdf() {
             const fileInput = document.getElementById('wordFileInput');
             if (!fileInput.files.length) return;
 
             const file = fileInput.files[0];
             currentFileName = file.name.replace(/\.[^/.]+$/, "");
-            showLoader("Word ডকুমেন্ট বিশ্লেষণ করা হচ্ছে...");
+            showLoader("Word ফাইল ও ছবি প্রসেস করা হচ্ছে...");
 
             document.getElementById('metaIcon').className = "fa-solid fa-file-word text-blue-600";
             document.getElementById('metaFileName').innerText = file.name;
@@ -333,11 +336,23 @@
             reader.onload = async function(e) {
                 try {
                     const arrayBuffer = e.target.result;
-                    const result = await mammoth.convertToHtml({ arrayBuffer: arrayBuffer });
+                    
+                    // Custom options to extract embedded images as Base64 so they stay in place
+                    const options = {
+                        convertImage: mammoth.images.imgElement(function(image) {
+                            return image.read("base64").then(function(imageBuffer) {
+                                return {
+                                    src: "data:" + image.contentType + ";base64," + imageBuffer
+                                };
+                            });
+                        })
+                    };
+
+                    const result = await mammoth.convertToHtml({ arrayBuffer: arrayBuffer }, options);
                     const htmlText = result.value.trim();
 
                     if (!htmlText) {
-                        showToast("ফাইলের মধ্যে কোনো টেক্সট পাওয়া যায়নি!", "error");
+                        showToast("ফাইলের মধ্যে কোনো কন্টেন্ট পাওয়া যায়নি!", "error");
                         hideLoader();
                         return;
                     }
@@ -357,7 +372,7 @@
                         </button>
                     `;
 
-                    showToast("Word ফাইল প্রস্তুত! প্রিভিউ চেক করে PDF ডাউনলোড করুন।");
+                    showToast("Word ফাইল সফলভাবে লোড হয়েছে! ছবি ও টেক্সট ঠিক আছে।");
 
                 } catch (err) {
                     hideLoader();
@@ -367,7 +382,7 @@
             reader.readAsArrayBuffer(file);
         }
 
-        // Reliable PDF Download without layout breaking
+        // Reliable PDF Download maintaining layout
         function downloadPdfFile() {
             showLoader("PDF জেনারেট হচ্ছে...");
             const previewEl = document.getElementById('outputPreview');
@@ -376,7 +391,7 @@
                 margin:       [10, 10, 10, 10],
                 filename:     (currentFileName || 'document') + '.pdf',
                 image:        { type: 'jpeg', quality: 0.98 },
-                html2canvas:  { scale: 2, useCORS: true, letterRendering: true },
+                html2canvas:  { scale: 2, useCORS: true, letterRendering: true, logging: false },
                 jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
             };
 
@@ -385,7 +400,7 @@
                 showToast("PDF ফাইল সফলভাবে ডাউনলোড হয়েছে!");
             }).catch(err => {
                 hideLoader();
-                showToast("PDF ডাইনলোডে সমস্যা: " + err.message, "error");
+                showToast("PDF ডাউনলোডে সমস্যা: " + err.message, "error");
             });
         }
 
@@ -396,7 +411,7 @@
 
             const file = fileInput.files[0];
             currentFileName = file.name.replace(/\.[^/.]+$/, "");
-            showLoader("PDF প্রসেস করা হচ্ছে...");
+            showLoader("PDF পেজ ও টেক্সট রিড করা হচ্ছে...");
 
             document.getElementById('metaIcon').className = "fa-solid fa-file-pdf text-red-600";
             document.getElementById('metaFileName').innerText = file.name;
@@ -418,12 +433,11 @@
                         const textContent = await page.getTextContent();
                         let pageText = '';
                         
-                        // Keep proper spacing for extracted words
                         textContent.items.forEach(item => {
                             pageText += item.str + ' ';
                         });
 
-                        fullHtml += `<p class="mb-4">${pageText.trim()}</p>`;
+                        fullHtml += `<div class="page-container mb-6"><h5 class="text-xs text-gray-400 font-semibold mb-2">--- পৃষ্ঠা ${i} ---</h5><p>${pageText.trim()}</p></div>`;
                     }
 
                     if (!fullHtml.replace(/<[^>]*>/g, '').trim()) {
@@ -447,7 +461,7 @@
                         </button>
                     `;
 
-                    showToast("PDF ফাইল প্রস্তুত! টেক্সট এডিট করে ডাউনলোড করতে পারেন।");
+                    showToast("PDF থেকে টেক্সট সফলভাবে এক্সট্র্যাক্ট করা হয়েছে!");
 
                 } catch (err) {
                     hideLoader();
@@ -464,7 +478,7 @@
             const header = "<html xmlns:o='urn:schemas-microsoft-com:office:office' " +
                 "xmlns:w='urn:schemas-microsoft-com:office:word' " +
                 "xmlns='http://www.w3.org/TR/REC-html40'>" +
-                "<head><meta charset='utf-8'><title>Document</title><style>body{font-family:'Hind Siliguri',Arial,sans-serif;line-height:1.8;}</style></head><body>";
+                "<head><meta charset='utf-8'><title>Document</title><style>body{font-family:'Hind Siliguri',Arial,sans-serif;line-height:1.8;} img{max-width:100%;height:auto;}</style></head><body>";
             const footer = "</body></html>";
             
             const sourceHTML = header + content + footer;
