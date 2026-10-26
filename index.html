@@ -97,6 +97,21 @@
         #docxRenderHost .docx { box-shadow: none !important; }
         .pdf-page-image { display:block; width:100%; height:auto; margin:0 auto; page-break-after:always; break-after:page; }
         .pdf-page-image:last-child { page-break-after:auto; break-after:auto; }
+        /* Keep rendered DOCX pages at their own page size instead of forcing all pages into one flow. */
+        #outputPreview .docx-wrapper { padding:0 !important; background:#fff !important; }
+        #outputPreview .docx { margin:0 auto !important; box-shadow:none !important; }
+        #outputPreview .docx table { max-width:100%; }
+        #outputPreview .docx img { max-width:100%; }
+        .amarkaj-word-page { margin:0; padding:0; border:0; page-break-after:always; break-after:page; }
+        .amarkaj-word-page:last-child { page-break-after:auto; break-after:auto; }
+        /* A4 portrait canvas for PDF export and print preview */
+        .amarkaj-a4-export { width:210mm !important; min-width:210mm !important; max-width:210mm !important; margin:0 auto !important; background:#fff !important; }
+        @page { size:A4 portrait; margin:0; }
+        @media print {
+            html, body { width:210mm; margin:0 !important; padding:0 !important; background:#fff !important; }
+            #outputPreview { width:210mm !important; max-width:210mm !important; margin:0 !important; padding:0 !important; border:0 !important; overflow:visible !important; }
+            .amarkaj-a4-export { width:210mm !important; min-width:210mm !important; max-width:210mm !important; }
+        }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800 flex flex-col min-h-screen">
@@ -382,7 +397,9 @@
                 const preview = document.getElementById('outputPreview');
                 preview.innerHTML = "";
                 const rendered = host.querySelector('.docx-wrapper') || host;
-                preview.appendChild(rendered.cloneNode(true));
+                const renderedClone = rendered.cloneNode(true);
+                renderedClone.classList.add('amarkaj-a4-export');
+                preview.appendChild(renderedClone);
                 preview.contentEditable = "true";
                 document.getElementById('previewWrapper').classList.remove('hidden');
                 document.getElementById('actionArea').innerHTML = `
@@ -390,36 +407,40 @@
                         <i class="fa-solid fa-file-pdf"></i><span>PDF ডাউনলোড করুন</span>
                     </button>`;
                 hideLoader();
-                showToast("Word ডকুমেন্ট লোড হয়েছে। মূল layout যতটা সম্ভব রাখা হয়েছে; PDF ডাউনলোডের পর মিলিয়ে নিন।");
+                showToast("A4 Portrait PDF প্রস্তুত। পৃষ্ঠা, ছবি ও টেবিলের layout যতটা সম্ভব রাখা হয়েছে; ডাউনলোড করা PDF যাচাই করুন।");
             } catch (err) {
                 hideLoader();
                 showToast("Word ফাইল প্রসেস করা যায়নি: " + (err.message || err), "error");
             }
         }
 
-        // Export rendered DOCX content. Browser conversion cannot guarantee pixel-perfect Word pagination.
+        // WORD -> PDF: render each DOCX page separately to avoid reflowing the entire document.
+        // Browser rendering is best-effort; exact Word pagination requires Microsoft Word/LibreOffice.
         async function downloadPdfFile() {
             const preview = document.getElementById('outputPreview');
             if (!preview || !preview.innerHTML.trim()) {
                 showToast("ডাউনলোড করার মতো কন্টেন্ট নেই।", "error"); return;
             }
-            showLoader("PDF তৈরি হচ্ছে; ছবি ও টেবিল প্রস্তুত হচ্ছে...");
+            showLoader("প্রতিটি Word পৃষ্ঠা আলাদাভাবে PDF-এ নেওয়া হচ্ছে...");
             try {
+                if (!window.html2pdf) throw new Error("PDF লাইব্রেরি লোড হয়নি। ইন্টারনেট চালু করে Reload করুন।");
+                const docxPages = Array.from(preview.querySelectorAll(".docx"));
+                const target = docxPages.length ? preview.querySelector(".docx-wrapper") || preview : preview;
                 const opt = {
                     margin: 0,
                     filename: (currentFileName || "document") + ".pdf",
-                    image: { type: "jpeg", quality: 0.99 },
+                    image: { type: "jpeg", quality: 1 },
                     html2canvas: {
-                        scale: 2, useCORS: true, allowTaint: false,
-                        letterRendering: true, logging: false,
-                        backgroundColor: "#ffffff", scrollX: 0, scrollY: 0
+                        scale: 3, useCORS: true, allowTaint: false,
+                        letterRendering: true, logging: false, backgroundColor: "#ffffff",
+                        scrollX: 0, scrollY: 0, windowWidth: Math.max(target.scrollWidth || 0, 900)
                     },
                     jsPDF: { unit: "mm", format: "a4", orientation: "portrait", compress: true },
                     pagebreak: { mode: ["css", "legacy"], avoid: ["img", "tr", "table"] }
                 };
-                await html2pdf().set(opt).from(preview).save();
+                await html2pdf().set(opt).from(target).save();
                 hideLoader();
-                showToast("PDF ডাউনলোড হয়েছে। জটিল layout হলে Word/LibreOffice থেকে PDF Export সবচেয়ে নির্ভুল।");
+                showToast("PDF তৈরি হয়েছে। Word-এর জটিল layout, custom page size বা exact pagination হলে Microsoft Word/LibreOffice থেকে Save as PDF সবচেয়ে নির্ভুল।");
             } catch (err) {
                 hideLoader();
                 showToast("PDF ডাউনলোডে সমস্যা: " + (err.message || err), "error");
@@ -433,7 +454,7 @@
             if (!input.files || !input.files.length) return;
             const file = input.files[0];
             currentFileName = file.name.replace(/\.[^/.]+$/, "");
-            showLoader("PDF-এর প্রতিটি পৃষ্ঠা, ছবি ও টেবিলের অবস্থান সংরক্ষণ হচ্ছে...");
+            showLoader("PDF-এর প্রতিটি পৃষ্ঠা উচ্চ রেজোলিউশনে রেন্ডার হচ্ছে...");
             document.getElementById('metaIcon').className = "fa-solid fa-file-pdf text-red-600";
             document.getElementById('metaFileName').innerText = file.name;
             document.getElementById('metaFileSize').innerText = formatBytes(file.size);
@@ -453,7 +474,7 @@
                     document.getElementById('loaderText').innerText = `পৃষ্ঠা ${i}/${pdf.numPages} রেন্ডার হচ্ছে...`;
                     const page = await pdf.getPage(i);
                     const originalViewport = page.getViewport({ scale: 1 });
-                    const viewport = page.getViewport({ scale: 2.25 });
+                    const viewport = page.getViewport({ scale: 3 });
                     const canvas = document.createElement("canvas");
                     canvas.width = Math.ceil(viewport.width);
                     canvas.height = Math.ceil(viewport.height);
@@ -462,7 +483,7 @@
                     ctx.fillRect(0, 0, canvas.width, canvas.height);
                     await page.render({ canvasContext: ctx, viewport }).promise;
                     const dataUrl = canvas.toDataURL("image/jpeg", 0.96);
-                    pages.push({ dataUrl, width: originalViewport.width, height: originalViewport.height });
+                    pages.push({ dataUrl, width: originalViewport.width, height: originalViewport.height, pageNumber: i });
                     const img = document.createElement("img");
                     img.src = dataUrl;
                     img.alt = `PDF page ${i}`;
@@ -480,7 +501,7 @@
                         <i class="fa-solid fa-file-word"></i><span>Word (.doc) ডাউনলোড করুন</span>
                     </button>`;
                 hideLoader();
-                showToast("PDF-এর সব পৃষ্ঠা Word-এ দৃশ্যমান পৃষ্ঠা-ছবি হিসেবে যাবে। টেক্সট আলাদাভাবে edit করা যাবে না।");
+                showToast("PDF-এর মূল পৃষ্ঠা-অনুপাত দৃশ্যমানভাবে রাখা হয়েছে। A4 প্রিন্টে ভিন্ন সাইজের PDF পৃষ্ঠা fit হতে পারে; টেক্সট আলাদাভাবে edit করা যাবে না।");
             } catch (err) {
                 hideLoader();
                 showToast("PDF রিড/রেন্ডার সমস্যা: " + (err.message || err), "error");
@@ -492,20 +513,29 @@
             const preview = document.getElementById('outputPreview');
             let content = "";
             if (currentTab === "pdfToWord" && window.__amarkajPdfPages && window.__amarkajPdfPages.length) {
-                content = window.__amarkajPdfPages.map((page, index) => `
-                    <div style="page-break-after:${index === window.__amarkajPdfPages.length - 1 ? 'auto' : 'always'};margin:0;padding:0;text-align:center;">
-                        <img src="${page.dataUrl}" alt="PDF page ${index + 1}" style="display:block;width:100%;height:auto;margin:0;border:0;">
-                    </div>`).join("");
+                content = window.__amarkajPdfPages.map((page, index) => {
+                    const widthPt = Number(page.width) || 595.28;
+                    const heightPt = Number(page.height) || 841.89;
+                    return `<div class="amarkaj-word-page" style="width:${widthPt}pt;height:${heightPt}pt;page-break-after:${index === window.__amarkajPdfPages.length - 1 ? 'auto' : 'always'};">
+                        <img src="${page.dataUrl}" alt="PDF page ${index + 1}" style="display:block;width:${widthPt}pt;height:${heightPt}pt;max-width:none;object-fit:fill;margin:0;padding:0;border:0;">
+                    </div>`;
+                }).join("");
             } else {
                 content = preview.innerHTML;
             }
+            const pageStyles = (currentTab === "pdfToWord" && window.__amarkajPdfPages && window.__amarkajPdfPages.length)
+                ? window.__amarkajPdfPages.map((page, index) =>
+                    `@page page${index + 1} { size:${(Number(page.width) || 595.28)}pt ${(Number(page.height) || 841.89)}pt; margin:0; }`
+                  ).join("\\n")
+                : "@page { size:21cm 29.7cm; margin:0; }";
             const header = `<!DOCTYPE html><html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
             <head><meta charset="utf-8"><title>Document</title><style>
-            @page { size: 21cm 29.7cm; margin: 1cm; }
-            body { font-family: Arial, 'Nirmala UI', sans-serif; color:#111; }
+            ${pageStyles}
+            html,body { margin:0 !important; padding:0 !important; font-family:Arial,'Nirmala UI',sans-serif; color:#111; }
+            .amarkaj-word-page { margin:0 !important; padding:0 !important; overflow:hidden; }
             table { border-collapse:collapse; max-width:100%; }
             td,th { border:1px solid #999; padding:5px; vertical-align:top; }
-            img { max-width:100%; height:auto; }
+            img { display:block; border:0; }
             </style></head><body>${content}</body></html>`;
             const blob = new Blob(["\ufeff", header], { type: "application/msword" });
             const url = URL.createObjectURL(blob);
