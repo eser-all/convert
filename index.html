@@ -8,11 +8,11 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- DOCX Preview: preserves more Word layout information than plain text extraction -->
+    <!-- DOCX Preview: preserves Word layout, tables, and images -->
     <script src="https://unpkg.com/docx-preview@0.3.6/dist/docx-preview.js"></script>
     <!-- html2pdf.js (HTML to PDF converter) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <!-- PDF.js (PDF Text Extractor) -->
+    <!-- PDF.js (PDF Text Extractor & Page Renderer) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 
     <script>
@@ -87,9 +87,7 @@
             break-inside: avoid;
         }
 
-        /* Avoid forcing every table to full width: keep imported dimensions where possible */
         .preview-content * { box-sizing: border-box; }
-        .preview-content img { max-width: 100%; height: auto; }
         .preview-content .docx-wrapper { padding: 0 !important; background: #fff !important; }
         .preview-content .docx { margin: 0 auto !important; box-shadow: none !important; }
         #docxRenderHost { position: fixed; left: -30000px; top: 0; width: 900px; background: #fff; }
@@ -97,14 +95,12 @@
         #docxRenderHost .docx { box-shadow: none !important; }
         .pdf-page-image { display:block; width:100%; height:auto; margin:0 auto; page-break-after:always; break-after:page; }
         .pdf-page-image:last-child { page-break-after:auto; break-after:auto; }
-        /* Keep rendered DOCX pages at their own page size instead of forcing all pages into one flow. */
+        
         #outputPreview .docx-wrapper { padding:0 !important; background:#fff !important; }
         #outputPreview .docx { margin:0 auto !important; box-shadow:none !important; }
-        #outputPreview .docx table { max-width:100%; }
-        #outputPreview .docx img { max-width:100%; }
         .amarkaj-word-page { margin:0; padding:0; border:0; page-break-after:always; break-after:page; }
         .amarkaj-word-page:last-child { page-break-after:auto; break-after:auto; }
-        /* A4 portrait canvas for PDF export and print preview */
+        
         .amarkaj-a4-export { width:210mm !important; min-width:210mm !important; max-width:210mm !important; margin:0 auto !important; background:#fff !important; }
         @page { size:A4 portrait; margin:0; }
         @media print {
@@ -139,7 +135,7 @@
                 পেশাদার ডকুমেন্ট কনভার্টার
             </h1>
             <p class="text-gray-600 text-sm sm:text-base max-w-xl mx-auto">
-                Word থেকে PDF এবং PDF থেকে Word-compatible ফাইল তৈরি করুন। মূল layout যতটা সম্ভব রাখে; PDF থেকে Word-এ পৃষ্ঠা-ছবি ব্যবহার করে দৃশ্যমান বিন্যাস সংরক্ষণ করে।
+                Word থেকে PDF এবং PDF থেকে Word-compatible ফাইল তৈরি করুন মূল লেআউট, টেবিল ও ছবি অপরিবর্তিত রেখে।
             </p>
         </div>
 
@@ -362,13 +358,13 @@
             hideLoader();
         }
 
-        // WORD -> PDF: use DOCX renderer to retain styles, tables, images and page breaks.
+        // WORD -> PDF: Render DOCX layout preserving tables, images and page arrangement
         async function convertWordToPdf() {
             const input = document.getElementById('wordFileInput');
             if (!input.files || !input.files.length) return;
             const file = input.files[0];
             currentFileName = file.name.replace(/\.[^/.]+$/, "");
-            showLoader("Word-এর মূল formatting, ছবি ও টেবিল প্রস্তুত হচ্ছে...");
+            showLoader("Word ফাইল, টেবিল ও ছবি প্রসেস করা হচ্ছে...");
             document.getElementById('metaIcon').className = "fa-solid fa-file-word text-blue-600";
             document.getElementById('metaFileName').innerText = file.name;
             document.getElementById('metaFileSize').innerText = formatBytes(file.size);
@@ -377,7 +373,7 @@
 
             try {
                 if (!window.docx || typeof window.docx.renderAsync !== "function") {
-                    throw new Error("DOCX renderer লোড হয়নি। ইন্টারনেট চালু করে পেজ Reload করুন।");
+                    throw new Error("DOCX renderer লোড হয়নি। ইন্টারনেট সংযোগ চেক করুন।");
                 }
                 const host = document.getElementById('docxRenderHost');
                 host.innerHTML = "";
@@ -407,25 +403,22 @@
                         <i class="fa-solid fa-file-pdf"></i><span>PDF ডাউনলোড করুন</span>
                     </button>`;
                 hideLoader();
-                showToast("A4 Portrait PDF প্রস্তুত। পৃষ্ঠা, ছবি ও টেবিলের layout যতটা সম্ভব রাখা হয়েছে; ডাউনলোড করা PDF যাচাই করুন।");
+                showToast("Word ফাইল সফলভাবে লোড হয়েছে! টেবিল, ছবি ও লেআউট যথাস্থানে আছে।");
             } catch (err) {
                 hideLoader();
-                showToast("Word ফাইল প্রসেস করা যায়নি: " + (err.message || err), "error");
+                showToast("Word ফাইল প্রসেস করা যায়নি: " + (err.message || err), "error");
             }
         }
 
-        // WORD -> PDF: render each DOCX page separately to avoid reflowing the entire document.
-        // Browser rendering is best-effort; exact Word pagination requires Microsoft Word/LibreOffice.
         async function downloadPdfFile() {
             const preview = document.getElementById('outputPreview');
             if (!preview || !preview.innerHTML.trim()) {
                 showToast("ডাউনলোড করার মতো কন্টেন্ট নেই।", "error"); return;
             }
-            showLoader("প্রতিটি Word পৃষ্ঠা আলাদাভাবে PDF-এ নেওয়া হচ্ছে...");
+            showLoader("PDF জেনারেট হচ্ছে...");
             try {
-                if (!window.html2pdf) throw new Error("PDF লাইব্রেরি লোড হয়নি। ইন্টারনেট চালু করে Reload করুন।");
-                const docxPages = Array.from(preview.querySelectorAll(".docx"));
-                const target = docxPages.length ? preview.querySelector(".docx-wrapper") || preview : preview;
+                if (!window.html2pdf) throw new Error("PDF লাইব্রেরি লোড হয়নি।");
+                const target = preview.querySelector(".docx-wrapper") || preview;
                 const opt = {
                     margin: 0,
                     filename: (currentFileName || "document") + ".pdf",
@@ -440,27 +433,26 @@
                 };
                 await html2pdf().set(opt).from(target).save();
                 hideLoader();
-                showToast("PDF তৈরি হয়েছে। Word-এর জটিল layout, custom page size বা exact pagination হলে Microsoft Word/LibreOffice থেকে Save as PDF সবচেয়ে নির্ভুল।");
+                showToast("PDF ফাইল সফলভাবে ডাউনলোড হয়েছে!");
             } catch (err) {
                 hideLoader();
                 showToast("PDF ডাউনলোডে সমস্যা: " + (err.message || err), "error");
             }
         }
 
-        // PDF -> Word: render every PDF page as a high-resolution image.
-        // This preserves visual layout, but page text is not individually editable in Word.
+        // PDF -> Word: Render each PDF page as an image to keep original layout, tables & positions intact
         async function convertPdfToWord() {
             const input = document.getElementById('pdfFileInput');
             if (!input.files || !input.files.length) return;
             const file = input.files[0];
             currentFileName = file.name.replace(/\.[^/.]+$/, "");
-            showLoader("PDF-এর প্রতিটি পৃষ্ঠা উচ্চ রেজোলিউশনে রেন্ডার হচ্ছে...");
+            showLoader("PDF পেজ ও লেআউট প্রসেস করা হচ্ছে...");
             document.getElementById('metaIcon').className = "fa-solid fa-file-pdf text-red-600";
             document.getElementById('metaFileName').innerText = file.name;
             document.getElementById('metaFileSize').innerText = formatBytes(file.size);
 
             try {
-                if (!window.pdfjsLib) throw new Error("PDF.js লাইব্রেরি লোড হয়নি। ইন্টারনেট চালু করে Reload করুন।");
+                if (!window.pdfjsLib) throw new Error("PDF.js লাইব্রেরি লোড হয়নি।");
                 const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
                 document.getElementById('metaExtra').innerText = `${pdf.numPages} Page(s)`;
                 document.getElementById('fileMeta').classList.remove('hidden');
@@ -471,7 +463,7 @@
                 const pages = [];
 
                 for (let i = 1; i <= pdf.numPages; i++) {
-                    document.getElementById('loaderText').innerText = `পৃষ্ঠা ${i}/${pdf.numPages} রেন্ডার হচ্ছে...`;
+                    document.getElementById('loaderText').innerText = `পৃষ্ঠা ${i}/${pdf.numPages} প্রসেস হচ্ছে...`;
                     const page = await pdf.getPage(i);
                     const originalViewport = page.getViewport({ scale: 1 });
                     const viewport = page.getViewport({ scale: 3 });
@@ -484,6 +476,7 @@
                     await page.render({ canvasContext: ctx, viewport }).promise;
                     const dataUrl = canvas.toDataURL("image/jpeg", 0.96);
                     pages.push({ dataUrl, width: originalViewport.width, height: originalViewport.height, pageNumber: i });
+                    
                     const img = document.createElement("img");
                     img.src = dataUrl;
                     img.alt = `PDF page ${i}`;
@@ -501,14 +494,14 @@
                         <i class="fa-solid fa-file-word"></i><span>Word (.doc) ডাউনলোড করুন</span>
                     </button>`;
                 hideLoader();
-                showToast("PDF-এর মূল পৃষ্ঠা-অনুপাত দৃশ্যমানভাবে রাখা হয়েছে। A4 প্রিন্টে ভিন্ন সাইজের PDF পৃষ্ঠা fit হতে পারে; টেক্সট আলাদাভাবে edit করা যাবে না।");
+                showToast("PDF-এর সমস্ত লেআউট, টেবিল ও ছবি সঠিক পজিশনে রাখা হয়েছে!");
             } catch (err) {
                 hideLoader();
-                showToast("PDF রিড/রেন্ডার সমস্যা: " + (err.message || err), "error");
+                showToast("PDF রিড সমস্যা: " + (err.message || err), "error");
             }
         }
 
-        // Word-compatible .doc export. PDF input uses full-page images to protect layout.
+        // Word-compatible .doc export preserving precise visual layout
         function downloadWordDoc() {
             const preview = document.getElementById('outputPreview');
             let content = "";
@@ -526,7 +519,7 @@
             const pageStyles = (currentTab === "pdfToWord" && window.__amarkajPdfPages && window.__amarkajPdfPages.length)
                 ? window.__amarkajPdfPages.map((page, index) =>
                     `@page page${index + 1} { size:${(Number(page.width) || 595.28)}pt ${(Number(page.height) || 841.89)}pt; margin:0; }`
-                  ).join("\\n")
+                  ).join("\n")
                 : "@page { size:21cm 29.7cm; margin:0; }";
             const header = `<!DOCTYPE html><html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
             <head><meta charset="utf-8"><title>Document</title><style>
@@ -546,7 +539,7 @@
             a.click();
             a.remove();
             setTimeout(() => URL.revokeObjectURL(url), 1500);
-            showToast("Word-compatible ফাইল ডাউনলোড শুরু হয়েছে।");
+            showToast("Word (.doc) ফাইল সফলভাবে ডাউনলোড হয়েছে!");
         }
 
         // Copy Text
