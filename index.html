@@ -8,8 +8,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Mammoth.js (Word .docx reader) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    <!-- DOCX Preview: preserves more Word layout information than plain text extraction -->
+    <script src="https://unpkg.com/docx-preview@0.3.6/dist/docx-preview.js"></script>
     <!-- html2pdf.js (HTML to PDF converter) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <!-- PDF.js (PDF Text Extractor) -->
@@ -36,42 +36,19 @@
         @import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
         body {
             font-family: 'Hind Siliguri', 'Inter', sans-serif;
-            background-color: #f8fafc;
         }
-        
-        /* A4 Page Styling for Preview & Export */
-        .a4-page {
-            width: 210mm;
-            min-height: 297mm;
-            padding: 20mm;
-            margin: 10mm auto;
-            background: white;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-            box-sizing: border-box;
-            word-break: break-word;
-            overflow-wrap: break-word;
-        }
-
-        @media print {
-            body {
-                background: none;
-            }
-            .a4-page {
-                box-shadow: none;
-                margin: 0;
-                width: 100%;
-                page-break-after: always;
-            }
-        }
-
         .preview-content {
             font-family: 'Hind Siliguri', Arial, sans-serif;
             line-height: 1.8;
             color: #1a1a1a;
             font-size: 15px;
+            word-break: break-word;
+            overflow-wrap: break-word;
         }
-        .preview-content p { margin-bottom: 1rem; }
-        .preview-content h1, .preview-content h2, .preview-content h3 {
+        .preview-content p { 
+            margin-bottom: 1rem; 
+        }
+        .preview-content h1, .preview-content h2, .preview-content h3, .preview-content h4 {
             font-weight: bold;
             margin-top: 1.2rem;
             margin-bottom: 0.6rem;
@@ -81,11 +58,12 @@
         .preview-content h2 { font-size: 1.4rem; }
         .preview-content h3 { font-size: 1.2rem; }
         
-        /* Table Formatting */
+        /* Perfect Table Layout Retention */
         .preview-content table {
             width: 100% !important;
             border-collapse: collapse !important;
             margin: 15px 0 !important;
+            table-layout: auto !important;
         }
         .preview-content th, .preview-content td {
             border: 1px solid #b5b5b5 !important;
@@ -98,17 +76,45 @@
             font-weight: bold;
         }
 
-        /* Image Formatting */
+        /* Strict Image Positioning & Layout Protection */
         .preview-content img {
             max-width: 100% !important;
             height: auto !important;
-            display: block;
+            display: inline-block;
             margin: 12px auto;
             object-fit: contain;
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+
+        /* Avoid forcing every table to full width: keep imported dimensions where possible */
+        .preview-content * { box-sizing: border-box; }
+        .preview-content img { max-width: 100%; height: auto; }
+        .preview-content .docx-wrapper { padding: 0 !important; background: #fff !important; }
+        .preview-content .docx { margin: 0 auto !important; box-shadow: none !important; }
+        #docxRenderHost { position: fixed; left: -30000px; top: 0; width: 900px; background: #fff; }
+        #docxRenderHost .docx-wrapper { background: #fff !important; }
+        #docxRenderHost .docx { box-shadow: none !important; }
+        .pdf-page-image { display:block; width:100%; height:auto; margin:0 auto; page-break-after:always; break-after:page; }
+        .pdf-page-image:last-child { page-break-after:auto; break-after:auto; }
+        /* Keep rendered DOCX pages at their own page size instead of forcing all pages into one flow. */
+        #outputPreview .docx-wrapper { padding:0 !important; background:#fff !important; }
+        #outputPreview .docx { margin:0 auto !important; box-shadow:none !important; }
+        #outputPreview .docx table { max-width:100%; }
+        #outputPreview .docx img { max-width:100%; }
+        .amarkaj-word-page { margin:0; padding:0; border:0; page-break-after:always; break-after:page; }
+        .amarkaj-word-page:last-child { page-break-after:auto; break-after:auto; }
+        /* A4 portrait canvas for PDF export and print preview */
+        .amarkaj-a4-export { width:210mm !important; min-width:210mm !important; max-width:210mm !important; margin:0 auto !important; background:#fff !important; }
+        @page { size:A4 portrait; margin:0; }
+        @media print {
+            html, body { width:210mm; margin:0 !important; padding:0 !important; background:#fff !important; }
+            #outputPreview { width:210mm !important; max-width:210mm !important; margin:0 !important; padding:0 !important; border:0 !important; overflow:visible !important; }
+            .amarkaj-a4-export { width:210mm !important; min-width:210mm !important; max-width:210mm !important; }
         }
     </style>
 </head>
-<body class="text-gray-800 flex flex-col min-h-screen">
+<body class="bg-gray-50 text-gray-800 flex flex-col min-h-screen">
 
     <!-- Header Navigation -->
     <header class="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
@@ -121,19 +127,19 @@
             </a>
             <div class="flex items-center gap-2 text-xs sm:text-sm font-medium text-gray-500 bg-gray-100 px-3 py-1.5 rounded-full">
                 <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span>A4 Editable Engine</span>
+                <span>100% Client-Side Engine</span>
             </div>
         </div>
     </header>
 
     <!-- Main Section -->
-    <main class="flex-1 max-w-5xl w-full mx-auto px-4 py-8 sm:py-12">
+    <main class="flex-1 max-w-4xl w-full mx-auto px-4 py-8 sm:py-12">
         <div class="text-center mb-8">
             <h1 class="text-2xl sm:text-3xl font-extrabold text-gray-900 mb-2 sm:mb-3">
-                পেশাদার ডকুমেন্ট কনভার্টার (A4 সাইজ)
+                পেশাদার ডকুমেন্ট কনভার্টার
             </h1>
             <p class="text-gray-600 text-sm sm:text-base max-w-xl mx-auto">
-                ডাউনলোড করার পরেও ওয়ার্ড ফাইলে টেক্সট পুরোপুরি এডিট করতে পারবেন। টেবিল, ছবি ও লেআউট একদম ঠিক থাকবে।
+                Word থেকে PDF এবং PDF থেকে Word-compatible ফাইল তৈরি করুন। মূল layout যতটা সম্ভব রাখে; PDF থেকে Word-এ পৃষ্ঠা-ছবি ব্যবহার করে দৃশ্যমান বিন্যাস সংরক্ষণ করে[cite: 2].
             </p>
         </div>
 
@@ -149,7 +155,7 @@
                 <button id="tab-pdfToWord" onclick="switchTab('pdfToWord')" 
                         class="flex-1 py-3 px-4 rounded-xl font-semibold text-sm sm:text-base flex items-center justify-center gap-2 transition-all duration-200 text-gray-600 hover:text-gray-900 hover:bg-white/60">
                     <i class="fa-solid fa-file-pdf text-lg"></i>
-                    <span>PDF to Word (Editable)</span>
+                    <span>PDF to Word</span>
                 </button>
             </div>
 
@@ -188,7 +194,7 @@
                         <div class="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 text-primary-500 shadow-sm group-hover:scale-110 transition-transform">
                             <i class="fa-solid fa-file-pdf text-3xl"></i>
                         </div>
-                        <h3 class="text-lg font-bold text-gray-800 mb-1">PDF ফাইল নির্বাচন করুন (টেক্সট এডিটযোগ্য হবে)</h3>
+                        <h3 class="text-lg font-bold text-gray-800 mb-1">PDF ফাইল নির্বাচন করুন</h3>
                         <p class="text-xs sm:text-sm text-gray-500 mb-3">এখানে ক্লিক করুন অথবা পিডিএফ ফাইল টেনে আনুন</p>
                         <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-primary-700">
                             .pdf সমর্থিত
@@ -222,7 +228,7 @@
                     <div class="flex items-center justify-between">
                         <h4 class="font-bold text-gray-800 flex items-center gap-2 text-sm sm:text-base">
                             <i class="fa-solid fa-eye text-primary-500"></i>
-                            <span>ডকুমেন্ট প্রিভিউ ও লাইভ এডিটর (A4 সাইজ)</span>
+                            <span>ডকুমেন্ট প্রিভিউ ও এডিটর</span>
                         </h4>
                         <div class="flex items-center gap-2">
                             <button onclick="copyExtractedText()" class="px-3 py-1.5 rounded-lg border border-gray-300 hover:bg-gray-100 text-gray-700 font-medium text-xs flex items-center gap-1.5 transition">
@@ -236,12 +242,10 @@
                         </div>
                     </div>
 
-                    <!-- Editable A4 Content Preview Container -->
-                    <div class="bg-gray-200 p-4 rounded-xl overflow-x-auto max-h-[600px] overflow-y-auto">
-                        <div id="outputPreview" 
-                             contenteditable="true" 
-                             class="a4-page preview-content focus:outline-none focus:ring-2 focus:ring-primary-500">
-                        </div>
+                    <!-- Editable Content Preview Container -->
+                    <div id="outputPreview" 
+                         contenteditable="true" 
+                         class="preview-content p-6 bg-white border border-gray-300 rounded-xl max-h-[500px] overflow-y-auto focus:outline-none focus:ring-2 focus:ring-primary-500 shadow-inner">
                     </div>
 
                     <!-- Action Bar -->
@@ -259,6 +263,8 @@
             <p>&copy; 2026 Amarkaj Pro Tools - All Rights Reserved.</p>
         </div>
     </footer>
+
+    <div id="docxRenderHost" aria-hidden="true"></div>
 
     <!-- Conversion Logic Script -->
     <script>
@@ -351,193 +357,200 @@
             document.getElementById('toast').classList.add('hidden');
             document.getElementById('actionArea').innerHTML = '';
             document.getElementById('outputPreview').innerHTML = '';
+            window.__amarkajPdfPages = null;
+            document.getElementById('outputPreview').contentEditable = 'true';
             hideLoader();
         }
 
-        // 1. WORD TO PDF CONVERSION
+        // WORD -> PDF: use DOCX renderer to retain styles, tables, images and page breaks.
         async function convertWordToPdf() {
-            const fileInput = document.getElementById('wordFileInput');
-            if (!fileInput.files.length) return;
-
-            const file = fileInput.files[0];
+            const input = document.getElementById('wordFileInput');
+            if (!input.files || !input.files.length) return;
+            const file = input.files[0];
             currentFileName = file.name.replace(/\.[^/.]+$/, "");
-            showLoader("Word ফাইল, টেবিল ও ছবি প্রসেস করা হচ্ছে...");
-
+            showLoader("Word-এর মূল formatting, ছবি ও টেবিল প্রস্তুত হচ্ছে...");
             document.getElementById('metaIcon').className = "fa-solid fa-file-word text-blue-600";
             document.getElementById('metaFileName').innerText = file.name;
             document.getElementById('metaFileSize').innerText = formatBytes(file.size);
-            document.getElementById('metaExtra').innerText = "Word Document";
+            document.getElementById('metaExtra').innerText = "DOCX • Layout-aware";
             document.getElementById('fileMeta').classList.remove('hidden');
 
-            const reader = new FileReader();
-            reader.onload = async function(e) {
-                try {
-                    const arrayBuffer = e.target.result;
-                    const options = {
-                        convertImage: mammoth.images.imgElement(function(image) {
-                            return image.read("base64").then(function(imageBuffer) {
-                                return {
-                                    src: "data:" + image.contentType + ";base64," + imageBuffer
-                                };
-                            });
-                        })
-                    };
-
-                    const result = await mammoth.convertToHtml({ arrayBuffer: arrayBuffer }, options);
-                    const htmlText = result.value.trim();
-
-                    if (!htmlText) {
-                        showToast("ফাইলের মধ্যে কোনো কন্টেন্ট পাওয়া যায়নি!", "error");
-                        hideLoader();
-                        return;
-                    }
-
-                    const previewDiv = document.getElementById('outputPreview');
-                    previewDiv.innerHTML = htmlText;
-
-                    document.getElementById('previewWrapper').classList.remove('hidden');
-                    hideLoader();
-
-                    const actionArea = document.getElementById('actionArea');
-                    actionArea.innerHTML = `
-                        <button onclick="downloadPdfFile()" 
-                                class="w-full sm:w-auto px-6 py-3 bg-primary-500 hover:bg-primary-600 text-white font-bold rounded-xl shadow-lg shadow-red-200 transition flex items-center justify-center gap-2">
-                            <i class="fa-solid fa-file-pdf"></i>
-                            <span>A4 সাইজে PDF ডাউনলোড করুন</span>
-                        </button>
-                    `;
-
-                    showToast("Word ফাইল সফলভাবে লোড হয়েছে! আপনি চাইলে টেক্সট এডিট করতে পারেন।");
-
-                } catch (err) {
-                    hideLoader();
-                    showToast("ত্রুটি: " + err.message, "error");
+            try {
+                if (!window.docx || typeof window.docx.renderAsync !== "function") {
+                    throw new Error("DOCX renderer লোড হয়নি। ইন্টারনেট চালু করে পেজ Reload করুন।");
                 }
-            };
-            reader.readAsArrayBuffer(file);
+                const host = document.getElementById('docxRenderHost');
+                host.innerHTML = "";
+                await docx.renderAsync(await file.arrayBuffer(), host, null, {
+                    className: "docx",
+                    inWrapper: true,
+                    ignoreWidth: false,
+                    ignoreHeight: false,
+                    ignoreFonts: false,
+                    breakPages: true,
+                    ignoreLastRenderedPageBreak: false,
+                    experimental: true,
+                    trimXmlDeclaration: true,
+                    useBase64URL: true
+                });
+
+                const preview = document.getElementById('outputPreview');
+                preview.innerHTML = "";
+                const rendered = host.querySelector('.docx-wrapper') || host;
+                const renderedClone = rendered.cloneNode(true);
+                renderedClone.classList.add('amarkaj-a4-export');
+                preview.appendChild(renderedClone);
+                preview.contentEditable = "true";
+                document.getElementById('previewWrapper').classList.remove('hidden');
+                document.getElementById('actionArea').innerHTML = `
+                    <button onclick="downloadPdfFile()" class="w-full sm:w-auto px-6 py-3 bg-primary-500 hover:bg-primary-600 text-white font-bold rounded-xl shadow-lg transition flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-file-pdf"></i><span>PDF ডাউনলোড করুন</span>
+                    </button>`;
+                hideLoader();
+                showToast("A4 Portrait PDF প্রস্তুত। পৃষ্ঠা, ছবি ও টেবিলের layout যতটা সম্ভব রাখা হয়েছে; ডাউনলোড করা PDF যাচাই করুন।");
+            } catch (err) {
+                hideLoader();
+                showToast("Word ফাইল প্রসেস করা যায়নি: " + (err.message || err), "error");
+            }
         }
 
-        // Reliable A4 PDF Download
-        function downloadPdfFile() {
-            showLoader("A4 সাইজ PDF জেনারেট হচ্ছে...");
-            const previewEl = document.getElementById('outputPreview');
-
-            const opt = {
-                margin:       0,
-                filename:     (currentFileName || 'document') + '.pdf',
-                image:        { type: 'jpeg', quality: 0.98 },
-                html2canvas:  { scale: 2, useCORS: true, letterRendering: true, logging: false },
-                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
-            };
-
-            html2pdf().set(opt).from(previewEl).save().then(() => {
+        // WORD -> PDF: render each DOCX page separately to avoid reflowing the entire document.
+        async function downloadPdfFile() {
+            const preview = document.getElementById('outputPreview');
+            if (!preview || !preview.innerHTML.trim()) {
+                showToast("ডাউনলোড করার মতো কন্টেন্ট নেই।", "error"); return;
+            }
+            showLoader("প্রতিটি Word পৃষ্ঠা আলাদাভাবে PDF-এ নেওয়া হচ্ছে...");
+            try {
+                if (!window.html2pdf) throw new Error("PDF লাইব্রেরি লোড হয়নি। ইন্টারনেট চালু করে Reload করুন।");
+                const docxPages = Array.from(preview.querySelectorAll(".docx"));
+                const target = docxPages.length ? preview.querySelector(".docx-wrapper") || preview : preview;
+                const opt = {
+                    margin: 0,
+                    filename: (currentFileName || "document") + ".pdf",
+                    image: { type: "jpeg", quality: 1 },
+                    html2canvas: {
+                        scale: 3, useCORS: true, allowTaint: false,
+                        letterRendering: true, logging: false, backgroundColor: "#ffffff",
+                        scrollX: 0, scrollY: 0, windowWidth: Math.max(target.scrollWidth || 0, 900)
+                    },
+                    jsPDF: { unit: "mm", format: "a4", orientation: "portrait", compress: true },
+                    pagebreak: { mode: ["css", "legacy"], avoid: ["img", "tr", "table"] }
+                };
+                await html2pdf().set(opt).from(target).save();
                 hideLoader();
-                showToast("A4 সাইজের PDF সফলভাবে ডাউনলোড হয়েছে!");
-            }).catch(err => {
+                showToast("PDF তৈরি হয়েছে।");
+            } catch (err) {
                 hideLoader();
-                showToast("PDF ডাউনলোডে সমস্যা: " + err.message, "error");
-            });
+                showToast("PDF ডাউনলোডে সমস্যা: " + (err.message || err), "error");
+            }
         }
 
-        // 2. PDF TO WORD CONVERSION (Fully Editable Text)
+        // PDF -> Word: render every PDF page as a high-resolution image.
         async function convertPdfToWord() {
-            const fileInput = document.getElementById('pdfFileInput');
-            if (!fileInput.files.length) return;
-
-            const file = fileInput.files[0];
+            const input = document.getElementById('pdfFileInput');
+            if (!input.files || !input.files.length) return;
+            const file = input.files[0];
             currentFileName = file.name.replace(/\.[^/.]+$/, "");
-            showLoader("PDF থেকে এডিটযোগ্য টেক্সট এক্সট্র্যাক্ট করা হচ্ছে...");
-
+            showLoader("PDF-এর প্রতিটি পৃষ্ঠা উচ্চ রেজোলিউশনে রেন্ডার হচ্ছে...");
             document.getElementById('metaIcon').className = "fa-solid fa-file-pdf text-red-600";
             document.getElementById('metaFileName').innerText = file.name;
             document.getElementById('metaFileSize').innerText = formatBytes(file.size);
 
-            const reader = new FileReader();
-            reader.onload = async function(e) {
-                try {
-                    const typedarray = new Uint8Array(e.target.result);
-                    const pdf = await pdfjsLib.getDocument({ data: typedarray }).promise;
-                    
-                    document.getElementById('metaExtra').innerText = `${pdf.numPages} Page(s)`;
-                    document.getElementById('fileMeta').classList.remove('hidden');
+            try {
+                if (!window.pdfjsLib) throw new Error("PDF.js লাইব্রেরি লোড হয়নি। ইন্টারনেট চালু করে Reload করুন।");
+                const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
+                document.getElementById('metaExtra').innerText = `${pdf.numPages} Page(s)`;
+                document.getElementById('fileMeta').classList.remove('hidden');
 
-                    let fullHtml = '';
+                const preview = document.getElementById('outputPreview');
+                preview.innerHTML = "";
+                preview.contentEditable = "false";
+                const pages = [];
 
-                    for (let i = 1; i <= pdf.numPages; i++) {
-                        const page = await pdf.getPage(i);
-                        const textContent = await page.getTextContent();
-                        let pageText = '';
-                        
-                        textContent.items.forEach(item => {
-                            pageText += item.str + ' ';
-                        });
-
-                        fullHtml += `<div class="mb-6 pb-6 border-b border-gray-200"><h5 class="text-xs text-gray-400 font-semibold mb-2">--- পৃষ্ঠা ${i} ---</h5><p>${pageText.trim()}</p></div>`;
-                    }
-
-                    if (!fullHtml.replace(/<[^>]*>/g, '').trim()) {
-                        showToast("PDF-এ কোনো টেক্সট পাওয়া যায়নি (এটি স্ক্যান ইমেজ হতে পারে)।", "error");
-                        hideLoader();
-                        return;
-                    }
-
-                    const previewDiv = document.getElementById('outputPreview');
-                    previewDiv.innerHTML = fullHtml;
-
-                    document.getElementById('previewWrapper').classList.remove('hidden');
-                    hideLoader();
-
-                    const actionArea = document.getElementById('actionArea');
-                    actionArea.innerHTML = `
-                        <button onclick="downloadWordDoc()" 
-                                class="w-full sm:w-auto px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg shadow-blue-200 transition flex items-center justify-center gap-2">
-                            <i class="fa-solid fa-file-word"></i>
-                            <span>এডিটযোগ্য Word (.doc) ডাউনলোড করুন</span>
-                        </button>
-                    `;
-
-                    showToast("PDF থেকে টেক্সট সফলভাবে এক্সট্র্যাক্ট করা হয়েছে। আপনি ইচ্ছেমতো এডিট করতে পারবেন!");
-
-                } catch (err) {
-                    hideLoader();
-                    showToast("PDF রিড সমস্যা: " + err.message, "error");
+                for (let i = 1; i <= pdf.numPages; i++) {
+                    document.getElementById('loaderText').innerText = `পৃষ্ঠা ${i}/${pdf.numPages} রেন্ডার হচ্ছে...`;
+                    const page = await pdf.getPage(i);
+                    const originalViewport = page.getViewport({ scale: 1 });
+                    const viewport = page.getViewport({ scale: 3 });
+                    const canvas = document.createElement("canvas");
+                    canvas.width = Math.ceil(viewport.width);
+                    canvas.height = Math.ceil(viewport.height);
+                    const ctx = canvas.getContext("2d", { alpha: false });
+                    ctx.fillStyle = "#fff";
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    await page.render({ canvasContext: ctx, viewport }).promise;
+                    const dataUrl = canvas.toDataURL("image/jpeg", 0.96);
+                    pages.push({ dataUrl, width: originalViewport.width, height: originalViewport.height, pageNumber: i });
+                    const img = document.createElement("img");
+                    img.src = dataUrl;
+                    img.alt = `PDF page ${i}`;
+                    img.className = "pdf-page-image";
+                    img.style.width = "100%";
+                    img.style.maxWidth = "100%";
+                    preview.appendChild(img);
+                    canvas.width = canvas.height = 1;
                 }
-            };
-            reader.readAsArrayBuffer(file);
+
+                window.__amarkajPdfPages = pages;
+                document.getElementById('previewWrapper').classList.remove('hidden');
+                document.getElementById('actionArea').innerHTML = `
+                    <button onclick="downloadWordDoc()" class="w-full sm:w-auto px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg transition flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-file-word"></i><span>Word (.doc) ডাউনলোড করুন</span>
+                    </button>`;
+                hideLoader();
+                showToast("PDF সফলভাবে প্রস্তুত করা হয়েছে।");
+            } catch (err) {
+                hideLoader();
+                showToast("PDF রিড/রেন্ডার সমস্যা: " + (err.message || err), "error");
+            }
         }
 
-        // Editable Word (.doc) Download with UTF-8 Support
+        // Word-compatible .doc export.
         function downloadWordDoc() {
-            const content = document.getElementById('outputPreview').innerHTML;
-            
-            const header = "<html xmlns:o='urn:schemas-microsoft-com:office:office' " +
-                "xmlns:w='urn:schemas-microsoft-com:office:word' " +
-                "xmlns='http://www.w3.org/TR/REC-html40'>" +
-                "<head><meta charset='utf-8'><title>Document</title><style>body{font-family:'Hind Siliguri',Arial,sans-serif;line-height:1.8;} table{width:100%;border-collapse:collapse;} th,td{border:1px solid #ccc;padding:8px;} img{max-width:100%;height:auto;}</style></head><body>";
-            const footer = "</body></html>";
-            
-            const sourceHTML = header + content + footer;
-
-            const blob = new Blob(['\ufeff' + sourceHTML], {
-                type: 'application/msword'
-            });
-
+            const preview = document.getElementById('outputPreview');
+            let content = "";
+            if (currentTab === "pdfToWord" && window.__amarkajPdfPages && window.__amarkajPdfPages.length) {
+                content = window.__amarkajPdfPages.map((page, index) => {
+                    const widthPt = Number(page.width) || 595.28;
+                    const heightPt = Number(page.height) || 841.89;
+                    return `<div class="amarkaj-word-page" style="width:${widthPt}pt;height:${heightPt}pt;page-break-after:${index === window.__amarkajPdfPages.length - 1 ? 'auto' : 'always'};">
+                        <img src="${page.dataUrl}" alt="PDF page ${index + 1}" style="display:block;width:${widthPt}pt;height:${heightPt}pt;max-width:none;object-fit:fill;margin:0;padding:0;border:0;">
+                    </div>`;
+                }).join("");
+            } else {
+                content = preview.innerHTML;
+            }
+            const pageStyles = (currentTab === "pdfToWord" && window.__amarkajPdfPages && window.__amarkajPdfPages.length)
+                ? window.__amarkajPdfPages.map((page, index) =>
+                    `@page page${index + 1} { size:${(Number(page.width) || 595.28)}pt ${(Number(page.height) || 841.89)}pt; margin:0; }`
+                  ).join("\n")
+                : "@page { size:21cm 29.7cm; margin:0; }";
+            const header = `<!DOCTYPE html><html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+            <head><meta charset="utf-8"><title>Document</title><style>
+            ${pageStyles}
+            html,body { margin:0 !important; padding:0 !important; font-family:Arial,'Nirmala UI',sans-serif; color:#111; }
+            .amarkaj-word-page { margin:0 !important; padding:0 !important; overflow:hidden; }
+            table { border-collapse:collapse; max-width:100%; }
+            td,th { border:1px solid #999; padding:5px; vertical-align:top; }
+            img { display:block; border:0; }
+            </style></head><body>${content}</body></html>`;
+            const blob = new Blob(["\ufeff", header], { type: "application/msword" });
             const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
+            const a = document.createElement("a");
             a.href = url;
-            a.download = (currentFileName || 'document') + '.doc';
+            a.download = (currentFileName || "document") + ".doc";
             document.body.appendChild(a);
             a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-
-            showToast("এডিটযোগ্য Word ফাইল সফলভাবে ডাউনলোড হয়েছে!");
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 1500);
+            showToast("Word-compatible ফাইল ডাউনলোড শুরু হয়েছে।");
         }
 
         // Copy Text
         function copyExtractedText() {
             const preview = document.getElementById('outputPreview');
-            const text = preview.innerText || preview.textContent;
+            const text = preview.innerText || preview.textContent || "";
 
             if (!text.trim()) {
                 showToast("কপি করার মতো টেক্সট নেই!", "error");
@@ -547,7 +560,7 @@
             navigator.clipboard.writeText(text).then(() => {
                 showToast("টেক্সট ক্লিপবোর্ডে কপি করা হয়েছে!");
             }).catch(() => {
-                showToast("কপি করা সম্ভব হয়নি!", "error");
+                showToast("কপি করা সম্ভব হয়নি!", "error");
             });
         }
     </script>
