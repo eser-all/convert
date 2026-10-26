@@ -16,9 +16,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 
     <script>
-        // Set worker source for PDF.js
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-        
         tailwind.config = {
             theme: {
                 extend: {
@@ -40,16 +37,13 @@
         body {
             font-family: 'Hind Siliguri', 'Inter', sans-serif;
         }
-        /* Style printable content inside preview */
         .preview-content {
             font-family: 'Hind Siliguri', Arial, sans-serif;
             line-height: 1.8;
             color: #1a1a1a;
             font-size: 15px;
         }
-        .preview-content p {
-            margin-bottom: 1rem;
-        }
+        .preview-content p { margin-bottom: 1rem; }
         .preview-content h1, .preview-content h2, .preview-content h3 {
             font-weight: bold;
             margin-top: 1.2rem;
@@ -99,7 +93,7 @@
                 পেশাদার ডকুমেন্ট কনভার্টার
             </h1>
             <p class="text-gray-600 text-sm sm:text-base max-w-xl mx-auto">
-                Word (.docx) থেকে PDF এবং PDF থেকে Word (.doc) এ রূপান্তর করুন সম্পূর্ণ নিখুঁতভাবে। লেখার ফন্ট বা তথ্য কোনো পরিবর্তন হবে না।
+                Word (.docx) থেকে PDF এবং PDF থেকে Word (.doc) এ রূপান্তর করুন সম্পূর্ণ নিখুঁতভাবে।
             </p>
         </div>
 
@@ -169,9 +163,6 @@
                         <i class="fa-solid fa-spinner text-2xl animate-spin"></i>
                     </div>
                     <p id="loaderText" class="text-sm font-semibold text-gray-700">প্রসেস হচ্ছে, অনুগ্রহ করে অপেক্ষা করুন...</p>
-                    <div class="w-48 h-1.5 bg-gray-100 rounded-full mx-auto overflow-hidden">
-                        <div class="w-full h-full bg-primary-500 animate-pulse"></div>
-                    </div>
                 </div>
 
                 <!-- File Info Bar -->
@@ -213,7 +204,6 @@
 
                     <!-- Action Bar -->
                     <div id="actionArea" class="pt-2 flex flex-wrap items-center justify-end gap-3">
-                        <!-- Dynamic Buttons attached via JS -->
                     </div>
                 </div>
 
@@ -225,14 +215,20 @@
     <footer class="bg-gray-900 text-gray-400 py-6 border-t border-gray-800 mt-auto">
         <div class="max-w-4xl mx-auto px-4 text-center text-xs sm:text-sm space-y-2">
             <p>&copy; 2026 Amarkaj Pro Tools - All Rights Reserved.</p>
-            <p class="text-gray-500">নিরাপদ ও দ্রুত ফাইল কনভার্সন সার্ভিস। আপনার ফাইল ব্রাউজারেই প্রক্রিয়াজাত হয়।</p>
         </div>
     </footer>
 
     <!-- Conversion Logic Script -->
     <script>
+        // PDF.js worker setup inside window load
+        window.addEventListener('load', () => {
+            if (window.pdfjsLib) {
+                pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+            }
+        });
+
         let currentTab = 'wordToPdf';
-        let extractedHtmlContent = '';
+        let currentFileName = '';
 
         function switchTab(tab) {
             currentTab = tab;
@@ -256,7 +252,6 @@
             }
         }
 
-        // Drag & Drop Handlers
         function handleDragOver(e, element) {
             e.preventDefault();
             element.classList.add('bg-red-100/50', 'border-primary-500');
@@ -269,8 +264,7 @@
 
         function handleFileDrop(e, inputId, callback) {
             e.preventDefault();
-            const dt = e.dataTransfer;
-            const files = dt.files;
+            const files = e.dataTransfer.files;
             if (files.length > 0) {
                 const input = document.getElementById(inputId);
                 input.files = files;
@@ -303,10 +297,9 @@
         function formatBytes(bytes, decimals = 2) {
             if (bytes === 0) return '0 Bytes';
             const k = 1024;
-            const dm = decimals < 0 ? 0 : decimals;
             const sizes = ['Bytes', 'KB', 'MB', 'GB'];
             const i = Math.floor(Math.log(bytes) / Math.log(k));
-            return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(decimals)) + ' ' + sizes[i];
         }
 
         function resetConverter() {
@@ -326,9 +319,9 @@
             if (!fileInput.files.length) return;
 
             const file = fileInput.files[0];
+            currentFileName = file.name.replace(/\.[^/.]+$/, "");
             showLoader("Word ডকুমেন্ট বিশ্লেষণ করা হচ্ছে...");
 
-            // Meta setup
             document.getElementById('metaIcon').className = "fa-solid fa-file-word text-blue-600";
             document.getElementById('metaFileName').innerText = file.name;
             document.getElementById('metaFileSize').innerText = formatBytes(file.size);
@@ -339,42 +332,31 @@
             reader.onload = async function(e) {
                 try {
                     const arrayBuffer = e.target.result;
-                    // Custom options for Mammoth to preserve headings and styling
-                    const options = {
-                        styleMap: [
-                            "p[style-name='Heading 1'] => h1:fresh",
-                            "p[style-name='Heading 2'] => h2:fresh",
-                            "p[style-name='Heading 3'] => h3:fresh"
-                        ]
-                    };
-
-                    const result = await mammoth.convertToHtml({ arrayBuffer: arrayBuffer }, options);
+                    const result = await mammoth.convertToHtml({ arrayBuffer: arrayBuffer });
                     const htmlText = result.value.trim();
 
                     if (!htmlText) {
-                        showToast("ফাইলের মধ্যে কোনো ব্যবহারযোগ্য টেক্সট পাওয়া যায়নি!", "error");
+                        showToast("ফাইলের মধ্যে কোনো টেক্সট পাওয়া যায়নি!", "error");
                         hideLoader();
                         return;
                     }
 
                     const previewDiv = document.getElementById('outputPreview');
                     previewDiv.innerHTML = htmlText;
-                    extractedHtmlContent = htmlText;
 
                     document.getElementById('previewWrapper').classList.remove('hidden');
                     hideLoader();
 
-                    // Render Action Button
                     const actionArea = document.getElementById('actionArea');
                     actionArea.innerHTML = `
-                        <button onclick="downloadPdfFile('${file.name.replace(/\.[^/.]+$/, "")}.pdf')" 
+                        <button onclick="downloadPdfFile()" 
                                 class="w-full sm:w-auto px-6 py-3 bg-primary-500 hover:bg-primary-600 text-white font-bold rounded-xl shadow-lg shadow-red-200 transition flex items-center justify-center gap-2">
                             <i class="fa-solid fa-file-pdf"></i>
                             <span>PDF ডাউনলোড করুন</span>
                         </button>
                     `;
 
-                    showToast("Word ফাইল সফলভাবে পড়া হয়েছে! আপনি নিচে প্রিভিউ দেখে PDF তৈরি করতে পারেন।");
+                    showToast("Word ফাইল প্রস্তুত! প্রিভিউ চেক করে PDF ডাউনলোড করুন।");
 
                 } catch (err) {
                     hideLoader();
@@ -384,48 +366,36 @@
             reader.readAsArrayBuffer(file);
         }
 
-        // Download generated PDF safely using html2pdf
-        async function downloadPdfFile(defaultFileName) {
-            showLoader("PDF তৈরি ও ফরম্যাটিং হচ্ছে...");
-            
-            // Temporary wrapper for PDF rendering to avoid clipping & line skips
-            const element = document.createElement('div');
-            element.className = 'preview-content';
-            element.style.padding = '20px';
-            element.style.width = '100%';
-            element.innerHTML = document.getElementById('outputPreview').innerHTML;
+        // Reliable PDF Download
+        function downloadPdfFile() {
+            showLoader("PDF জেনারেট হচ্ছে...");
+            const previewEl = document.getElementById('outputPreview');
 
             const opt = {
-                margin:       [12, 12, 12, 12],
-                filename:     defaultFileName,
+                margin:       10,
+                filename:     (currentFileName || 'document') + '.pdf',
                 image:        { type: 'jpeg', quality: 0.98 },
-                html2canvas:  { 
-                    scale: 2, 
-                    useCORS: true, 
-                    logging: false,
-                    letterRendering: true
-                },
-                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
-                pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] }
+                html2canvas:  { scale: 2, useCORS: true },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
             };
 
-            try {
-                await html2pdf().set(opt).from(element).save();
+            html2pdf().set(opt).from(previewEl).save().then(() => {
                 hideLoader();
-                showToast("PDF ফাইল সফলভাবে ডাউনলোড হয়েছে!");
-            } catch (err) {
+                showToast("PDF ফাইল সফলভাবে ডাউনলোড হয়েছে!");
+            }).catch(err => {
                 hideLoader();
-                showToast("PDF তৈরিতে সমস্যা হয়েছে: " + err.message, "error");
-            }
+                showToast("PDF ডাইনলোডে সমস্যা: " + err.message, "error");
+            });
         }
 
-        // 2. PDF TO WORD CONVERSION (Using PDF.js for real extraction)
+        // 2. PDF TO WORD CONVERSION
         async function convertPdfToWord() {
             const fileInput = document.getElementById('pdfFileInput');
             if (!fileInput.files.length) return;
 
             const file = fileInput.files[0];
-            showLoader("PDF ফাইল পেজ বাই পেজ প্রসেস করা হচ্ছে...");
+            currentFileName = file.name.replace(/\.[^/.]+$/, "");
+            showLoader("PDF প্রসেস করা হচ্ছে...");
 
             document.getElementById('metaIcon').className = "fa-solid fa-file-pdf text-red-600";
             document.getElementById('metaFileName').innerText = file.name;
@@ -443,69 +413,56 @@
                     let fullHtml = '';
 
                     for (let i = 1; i <= pdf.numPages; i++) {
-                        showLoader(`পৃষ্ঠা ${i} / ${pdf.numPages} থেকে টেক্সট এক্সট্র্যাক্ট করা হচ্ছে...`);
                         const page = await pdf.getPage(i);
                         const textContent = await page.getTextContent();
-                        
                         let pageText = '';
-                        let lastY = null;
-
-                        // Process items to retain basic paragraph structures
-                        for (let item of textContent.items) {
-                            if (lastY !== null && Math.abs(item.transform[5] - lastY) > 6) {
-                                pageText += '<br>';
-                            }
+                        
+                        textContent.items.forEach(item => {
                             pageText += item.str + ' ';
-                            lastY = item.transform[5];
-                        }
+                        });
 
-                        fullHtml += `<div class="pdf-page-block mb-6"><h3 class="text-xs text-gray-400 font-bold uppercase mb-2">--- Page ${i} ---</h3><p>${pageText}</p></div>`;
+                        fullHtml += `<p class="mb-4">${pageText}</p>`;
                     }
 
                     if (!fullHtml.replace(/<[^>]*>/g, '').trim()) {
-                        showToast("এই PDF-এ কোনো টেক্সট পাওয়া যায়নি। এটি স্ক্যান করা ইমেজ হতে পারে।", "error");
+                        showToast("PDF-এ কোনো টেক্সট পাওয়া যায়নি (এটি স্ক্যান ইমেজ হতে পারে)।", "error");
                         hideLoader();
                         return;
                     }
 
                     const previewDiv = document.getElementById('outputPreview');
                     previewDiv.innerHTML = fullHtml;
-                    extractedHtmlContent = fullHtml;
 
                     document.getElementById('previewWrapper').classList.remove('hidden');
                     hideLoader();
 
                     const actionArea = document.getElementById('actionArea');
                     actionArea.innerHTML = `
-                        <button onclick="downloadWordDoc('${file.name.replace(/\.[^/.]+$/, "")}.doc')" 
+                        <button onclick="downloadWordDoc()" 
                                 class="w-full sm:w-auto px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg shadow-blue-200 transition flex items-center justify-center gap-2">
                             <i class="fa-solid fa-file-word"></i>
                             <span>Word (.doc) ডাউনলোড করুন</span>
                         </button>
                     `;
 
-                    showToast("PDF থেকে সমস্ত টেক্সট সফলভাবে বের করা হয়েছে!");
+                    showToast("PDF ফাইল প্রস্তুত! টেক্সট এডিট করে ডাউনলোড করতে পারেন।");
 
                 } catch (err) {
                     hideLoader();
-                    showToast("PDF রিড করতে ত্রুটি হয়েছে: " + err.message, "error");
+                    showToast("PDF রিড সমস্যা: " + err.message, "error");
                 }
             };
-
             reader.readAsArrayBuffer(file);
         }
 
-        // Export content directly to a Word-compatible HTML Blob (.doc file format)
-        function downloadWordDoc(filename) {
+        // Reliable Word (.doc) Download with UTF-8 Support
+        function downloadWordDoc() {
             const content = document.getElementById('outputPreview').innerHTML;
             
-            // Standard MS Word document wrapper with UTF-8 support
             const header = "<html xmlns:o='urn:schemas-microsoft-com:office:office' " +
                 "xmlns:w='urn:schemas-microsoft-com:office:word' " +
                 "xmlns='http://www.w3.org/TR/REC-html40'>" +
-                "<head><meta charset='utf-8'><title>Exported Document</title>" +
-                "<style>body { font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; }</style>" +
-                "</head><body>";
+                "<head><meta charset='utf-8'><title>Document</title></head><body>";
             const footer = "</body></html>";
             
             const sourceHTML = header + content + footer;
@@ -514,41 +471,33 @@
                 type: 'application/msword'
             });
 
-            // Trigger Download
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = filename;
+            a.download = (currentFileName || 'document') + '.doc';
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
 
-            showToast("Word ফাইল সফলভাবে ডাউনলোড করা হয়েছে!");
+            showToast("Word ফাইল ডাউনলোড হয়েছে!");
         }
 
-        // Utility: Copy Extracted Text
+        // Copy Text
         function copyExtractedText() {
             const preview = document.getElementById('outputPreview');
             const text = preview.innerText || preview.textContent;
 
             if (!text.trim()) {
-                showToast("কপি করার মতো কোনো টেক্সট নেই!", "error");
+                showToast("কপি করার মতো টেক্সট নেই!", "error");
                 return;
             }
 
-            // Fallback copy strategy
-            const textarea = document.createElement('textarea');
-            textarea.value = text;
-            document.body.appendChild(textarea);
-            textarea.select();
-            try {
-                document.execCommand('copy');
-                showToast("টেক্সট ক্লিপবোর্ডে কপি করা হয়েছে!");
-            } catch (err) {
+            navigator.clipboard.writeText(text).then(() => {
+                showToast("টেক্সট ক্লিপবোর্ডে কপি করা হয়েছে!");
+            }).catch(() => {
                 showToast("কপি করা সম্ভব হয়নি!", "error");
-            }
-            document.body.removeChild(textarea);
+            });
         }
     </script>
 </body>
