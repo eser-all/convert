@@ -42,6 +42,8 @@
             line-height: 1.8;
             color: #1a1a1a;
             font-size: 15px;
+            word-break: break-word;
+            overflow-wrap: break-word;
         }
         .preview-content p { margin-bottom: 1rem; }
         .preview-content h1, .preview-content h2, .preview-content h3 {
@@ -220,7 +222,6 @@
 
     <!-- Conversion Logic Script -->
     <script>
-        // PDF.js worker setup inside window load
         window.addEventListener('load', () => {
             if (window.pdfjsLib) {
                 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -366,22 +367,22 @@
             reader.readAsArrayBuffer(file);
         }
 
-        // Reliable PDF Download
+        // Reliable PDF Download without layout breaking
         function downloadPdfFile() {
             showLoader("PDF জেনারেট হচ্ছে...");
             const previewEl = document.getElementById('outputPreview');
 
             const opt = {
-                margin:       10,
+                margin:       [10, 10, 10, 10],
                 filename:     (currentFileName || 'document') + '.pdf',
                 image:        { type: 'jpeg', quality: 0.98 },
-                html2canvas:  { scale: 2, useCORS: true },
+                html2canvas:  { scale: 2, useCORS: true, letterRendering: true },
                 jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
             };
 
             html2pdf().set(opt).from(previewEl).save().then(() => {
                 hideLoader();
-                showToast("PDF ফাইল সফলভাবে ডাউনলোড হয়েছে!");
+                showToast("PDF ফাইল সফলভাবে ডাউনলোড হয়েছে!");
             }).catch(err => {
                 hideLoader();
                 showToast("PDF ডাইনলোডে সমস্যা: " + err.message, "error");
@@ -417,11 +418,12 @@
                         const textContent = await page.getTextContent();
                         let pageText = '';
                         
+                        // Keep proper spacing for extracted words
                         textContent.items.forEach(item => {
                             pageText += item.str + ' ';
                         });
 
-                        fullHtml += `<p class="mb-4">${pageText}</p>`;
+                        fullHtml += `<p class="mb-4">${pageText.trim()}</p>`;
                     }
 
                     if (!fullHtml.replace(/<[^>]*>/g, '').trim()) {
@@ -462,7 +464,7 @@
             const header = "<html xmlns:o='urn:schemas-microsoft-com:office:office' " +
                 "xmlns:w='urn:schemas-microsoft-com:office:word' " +
                 "xmlns='http://www.w3.org/TR/REC-html40'>" +
-                "<head><meta charset='utf-8'><title>Document</title></head><body>";
+                "<head><meta charset='utf-8'><title>Document</title><style>body{font-family:'Hind Siliguri',Arial,sans-serif;line-height:1.8;}</style></head><body>";
             const footer = "</body></html>";
             
             const sourceHTML = header + content + footer;
@@ -496,7 +498,7 @@
             navigator.clipboard.writeText(text).then(() => {
                 showToast("টেক্সট ক্লিপবোর্ডে কপি করা হয়েছে!");
             }).catch(() => {
-                showToast("কপি করা সম্ভব হয়নি!", "error");
+                showToast("কপি করা সম্ভব হয়নি!", "error");
             });
         }
     </script>
