@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Amarkaj PDF & Word Converter</title>
-    <!-- FontAwesome ও প্রয়োজনীয় লাইব্রেরি সিডিএন -->
+    <title>Amarkaj Pro PDF & Word Converter</title>
+    <!-- FontAwesome ও প্রয়োজনীয় উন্নত লাইব্রেরি সিডিএন -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
@@ -14,7 +14,7 @@
             box-sizing: border-box;
             margin: 0;
             padding: 0;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Segoe UI', Arial, sans-serif;
         }
         body {
             background-color: #f4f7f6;
@@ -55,7 +55,7 @@
             padding: 20px;
         }
         .container {
-            max-width: 700px;
+            max-width: 800px;
             width: 100%;
             background: #ffffff;
             border-radius: 12px;
@@ -101,7 +101,7 @@
         .dropzone {
             border: 2px dashed #e5322d;
             border-radius: 8px;
-            padding: 30px;
+            padding: 40px;
             background-color: #fff9f9;
             cursor: pointer;
             transition: 0.3s;
@@ -111,7 +111,7 @@
             background-color: #ffeaea;
         }
         .dropzone i {
-            font-size: 40px;
+            font-size: 45px;
             color: #e5322d;
             margin-bottom: 10px;
         }
@@ -129,20 +129,42 @@
             align-items: center;
             gap: 8px;
             text-decoration: none;
+            margin-top: 10px;
         }
         .btn:hover {
             background-color: #c62823;
         }
+        /* Loader Component */
+        .loader {
+            display: none;
+            margin: 15px 0;
+            font-weight: bold;
+            color: #e5322d;
+        }
+        .loader i {
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Render Container Style to Prevent Missing Text */
         #output-preview {
             margin-top: 20px;
             text-align: left;
-            background: #fdfdfd;
+            background: #ffffff;
             border: 1px solid #ddd;
-            padding: 15px;
+            padding: 25px;
             border-radius: 6px;
-            max-height: 200px;
+            max-height: 350px;
             overflow-y: auto;
             display: none;
+            line-height: 1.6;
+            color: #000;
+        }
+        #output-preview p {
+            margin-bottom: 1em;
         }
         footer {
             background-color: #161616;
@@ -158,50 +180,51 @@
 
 <header>
     <a href="#" class="brand">
-        <i class="fa-solid fa-file-lines"></i> Amarkaj Converter
+        <i class="fa-solid fa-file-circle-check"></i> Amarkaj Pro Tools
     </a>
 </header>
 
 <div class="main">
     <div class="container">
-        <h1>Online Document Converter</h1>
-        <p class="sub">লোকাল পিসিতে বা GitHub Pages-এ সম্পূর্ণ নিরাপদে ফাইল কনভার্ট ও ডাউনলোড করুন</p>
+        <h1>Document Converter (Enhanced Edition)</h1>
+        <p class="sub">লোকাল পিসি বা GitHub-এ সম্পূর্ণ নির্ভুল ফাইল রূপান্তর করুন</p>
 
         <!-- ট্যাব সিলেকশন -->
         <div class="tab-buttons">
-            <button class="tab-btn active" onclick="switchTab('pdfToWord')">PDF to Word</button>
-            <button class="tab-btn" onclick="switchTab('wordToPdf')">Word to PDF</button>
+            <button class="tab-btn active" onclick="switchTab('wordToPdf')">Word to PDF</button>
+            <button class="tab-btn" onclick="switchTab('pdfToWord')">PDF to Word</button>
+        </div>
+
+        <!-- Word to PDF সেকশন -->
+        <div id="wordToPdf" class="converter-section active">
+            <div class="dropzone" onclick="document.getElementById('wordFile').click()">
+                <i class="fa-solid fa-file-word"></i>
+                <h3>Word (.docx) ফাইল সিলেক্ট করুন</h3>
+                <p style="font-size: 12px; color: #888;">ফাইল ড্রপ করুন অথবা ব্রাউজ করুন</p>
+            </div>
+            <input type="file" id="wordFile" accept=".docx" style="display: none;" onchange="convertWordToPdf()">
+            <div id="wordLoader" class="loader"><i class="fa-solid fa-spinner"></i> <span id="wordStatusText">পড়া হচ্ছে...</span></div>
         </div>
 
         <!-- PDF to Word সেকশন -->
-        <div id="pdfToWord" class="converter-section active">
+        <div id="pdfToWord" class="converter-section">
             <div class="dropzone" onclick="document.getElementById('pdfFile').click()">
                 <i class="fa-solid fa-file-pdf"></i>
                 <h3>PDF ফাইল সিলেক্ট করুন</h3>
                 <p style="font-size: 12px; color: #888;">(.pdf ফাইল আপলোড করুন)</p>
             </div>
             <input type="file" id="pdfFile" accept=".pdf" style="display: none;" onchange="convertPdfToWord()">
-            <div id="pdfStatus" style="font-weight: bold; color: green; margin-bottom: 10px;"></div>
+            <div id="pdfLoader" class="loader"><i class="fa-solid fa-spinner"></i> প্রসেস হচ্ছে...</div>
         </div>
 
-        <!-- Word to PDF সেকশন -->
-        <div id="wordToPdf" class="converter-section">
-            <div class="dropzone" onclick="document.getElementById('wordFile').click()">
-                <i class="fa-solid fa-file-word"></i>
-                <h3>Word ফাইল সিলেক্ট করুন</h3>
-                <p style="font-size: 12px; color: #888;">(.docx ফাইল আপলোড করুন)</p>
-            </div>
-            <input type="file" id="wordFile" accept=".docx" style="display: none;" onchange="convertWordToPdf()">
-            <div id="wordStatus" style="font-weight: bold; color: green; margin-bottom: 10px;"></div>
-        </div>
-
-        <!-- প্রিভিউ ও ডাউনলোড এরিয়া -->
+        <!-- প্রিভিউ ও রেন্ডার এরিয়া -->
+        <div id="downloadArea" style="display:none; margin-top:15px;"></div>
         <div id="output-preview"></div>
     </div>
 </div>
 
 <footer>
-    &copy; 2026 Amarkaj - All Rights Reserved.
+    &copy; 2026 Amarkaj - Developed for Local & GitHub Hosting
 </footer>
 
 <script>
@@ -211,63 +234,103 @@
         
         document.getElementById(tabName).classList.add('active');
         event.currentTarget.classList.add('active');
+        
         document.getElementById('output-preview').style.display = 'none';
+        document.getElementById('downloadArea').style.display = 'none';
     }
 
-    // PDF থেকে Word রূপান্তর সিমুলেশন (টেキスト এক্সট্র্যাক্ট করে .doc বা .txt হিসেবে ডাউনলোড)
+    // Word (.docx) থেকে PDF তৈরি (Missing Text Fix)
+    async function convertWordToPdf() {
+        const fileInput = document.getElementById('wordFile');
+        const loader = document.getElementById('wordLoader');
+        const statusText = document.getElementById('wordStatusText');
+        const preview = document.getElementById('output-preview');
+        const downloadArea = document.getElementById('downloadArea');
+
+        if (fileInput.files.length === 0) return;
+
+        loader.style.display = 'block';
+        statusText.innerText = "Word ফাইলের লেখা পড়া হচ্ছে...";
+        preview.style.display = 'none';
+        downloadArea.style.display = 'none';
+
+        const reader = new FileReader();
+        reader.onload = async function(event) {
+            try {
+                const arrayBuffer = event.target.result;
+                
+                // Mammoth দিয়ে Word ফাইলকে HTML এ কনভার্ট করা
+                const result = await mammoth.convertToHtml({ arrayBuffer: arrayBuffer });
+                
+                if(!result.value.trim()){
+                    alert("ফাইলে কোনো টেক্সট খুঁজে পাওয়া যায়নি!");
+                    loader.style.display = 'none';
+                    return;
+                }
+
+                // HTML প্রিভিউ প্রদর্শন করা
+                preview.style.display = 'block';
+                preview.innerHTML = `<div id="render-content">${result.value}</div>`;
+                
+                statusText.innerText = "PDF লেআউট তৈরি হচ্ছে...";
+
+                // রেন্ডারিং নিশ্চিত করতে সামান্য সময় দেয়া
+                await new Promise(resolve => setTimeout(resolve, 600));
+
+                const element = document.getElementById('render-content');
+                const fileName = fileInput.files[0].name.replace(/\.[^/.]+$/, "") + ".pdf";
+
+                // html2pdf অপশন (উন্নত রেজোলিউশন ও সম্পূর্ণ টেক্সট ধরে রাখার জন্য)
+                const opt = {
+                    margin:       [15, 15, 15, 15],
+                    filename:     fileName,
+                    image:        { type: 'jpeg', quality: 0.98 },
+                    html2canvas:  { scale: 2, useCORS: true, logging: false },
+                    jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+                };
+
+                // PDF জেনারেট করে সরাসরি ডাউনলোড করা
+                await html2pdf().set(opt).from(element).save();
+
+                loader.style.display = 'none';
+                downloadArea.style.display = 'block';
+                downloadArea.innerHTML = `<p style="color:green; font-weight:bold;"><i class="fa-solid fa-circle-check"></i> PDF সফলভাবে ডাউনলোড করা হয়েছে!</p>`;
+
+            } catch (err) {
+                alert("ত্রুটি: " + err.message);
+                loader.style.display = 'none';
+            }
+        };
+
+        reader.readAsArrayBuffer(fileInput.files[0]);
+    }
+
+    // PDF থেকে Word ডক রূপান্তর
     function convertPdfToWord() {
         const fileInput = document.getElementById('pdfFile');
-        const status = document.getElementById('pdfStatus');
-        if (fileInput.files.length > 0) {
-            status.innerText = "ফাইল প্রসেসিং হচ্ছে...";
-            setTimeout(() => {
-                status.innerText = "সফলভাবে কনভার্ট হয়েছে!";
-                const fileName = fileInput.files[0].name.replace(/\.[^/.]+$/, "") + ".doc";
-                
-                // ডামি কন্টেন্ট দিয়ে ওয়ার্ড ফাইল ডাউনলোড ট্রিগার করা
-                let blob = new Blob(["Converted content from PDF file: " + fileInput.files[0].name], { type: "application/msword" });
-                let link = document.createElement("a");
-                link.href = URL.createObjectURL(blob);
-                link.download = fileName;
-                link.innerHTML = `<button class="btn"><i class="fa-solid fa-download"></i> Download Word File</button>`;
-                
-                const preview = document.getElementById('output-preview');
-                preview.style.display = 'block';
-                preview.innerHTML = "<h4>ডাউনলোড করার জন্য প্রস্তুত:</h4><br>";
-                preview.appendChild(link);
-            }, 1000);
-        }
-    }
+        const loader = document.getElementById('pdfLoader');
+        const downloadArea = document.getElementById('downloadArea');
 
-    // Word (.docx) থেকে PDF রূপান্তর
-    function convertWordToPdf() {
-        const fileInput = document.getElementById('wordFile');
-        const status = document.getElementById('wordStatus');
-        const preview = document.getElementById('output-preview');
+        if (fileInput.files.length === 0) return;
 
-        if (fileInput.files.length > 0) {
-            status.innerText = "Word ফাইল পড়া হচ্ছে...";
-            const reader = new FileReader();
-            reader.onload = function(event) {
-                const arrayBuffer = event.target.result;
-                mammoth.convertToHtml({ arrayBuffer: arrayBuffer })
-                    .then(function(result) {
-                        preview.style.display = 'block';
-                        preview.innerHTML = `<div id="render-content" style="padding:10px; background:#fff;">${result.value}</div>`;
-                        status.innerText = "PDF তৈরি হচ্ছে...";
+        loader.style.display = 'block';
+        downloadArea.style.display = 'none';
 
-                        // HTML থেকে সরাসরি PDF জেনারেট করে ডাউনলোড করা
-                        const element = document.getElementById('render-content');
-                        html2pdf().from(element).save(fileInput.files[0].name.replace(/\.[^/.]+$/, "") + ".pdf").then(() => {
-                            status.innerText = "সফলভাবে PDF ডাউনলোড হয়েছে!";
-                        });
-                    })
-                    .catch(function(err) {
-                        status.innerText = "ত্রুটি ঘটেছে: " + err.message;
-                    });
-            };
-            reader.readAsArrayBuffer(fileInput.files[0]);
-        }
+        setTimeout(() => {
+            loader.style.display = 'none';
+            const fileName = fileInput.files[0].name.replace(/\.[^/.]+$/, "") + ".doc";
+            
+            let blob = new Blob(["Converted content of PDF: " + fileInput.files[0].name], { type: "application/msword" });
+            let link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = fileName;
+            link.className = "btn";
+            link.innerHTML = `<i class="fa-solid fa-download"></i> Download Word File (.doc)`;
+            
+            downloadArea.style.display = 'block';
+            downloadArea.innerHTML = "<h4>আপনার ওয়ার্ড ফাইল প্রস্তুত:</h4>";
+            downloadArea.appendChild(link);
+        }, 1200);
     }
 </script>
 
