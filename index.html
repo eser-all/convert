@@ -1,568 +1,1584 @@
 <!DOCTYPE html>
 <html lang="bn">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Amarkaj Pro PDF & Word Converter</title>
-    <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- FontAwesome Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- DOCX Preview: preserves more Word layout information than plain text extraction -->
-    <script src="https://unpkg.com/docx-preview@0.3.6/dist/docx-preview.js"></script>
-    <!-- html2pdf.js (HTML to PDF converter) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <!-- PDF.js (PDF Text Extractor) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Amarkaj AI Professional v6 — Complete Document & Photo Studio</title>
 
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        primary: {
-                            50: '#fff1f1',
-                            100: '#ffe1e1',
-                            500: '#e5322d',
-                            600: '#cc241f',
-                            700: '#a81a16',
-                        }
-                    }
-                }
-            }
-        }
-    </script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
-        body {
-            font-family: 'Hind Siliguri', 'Inter', sans-serif;
-        }
-        .preview-content {
-            font-family: 'Hind Siliguri', Arial, sans-serif;
-            line-height: 1.8;
-            color: #1a1a1a;
-            font-size: 15px;
-            word-break: break-word;
-            overflow-wrap: break-word;
-        }
-        .preview-content p { 
-            margin-bottom: 1rem; 
-        }
-        .preview-content h1, .preview-content h2, .preview-content h3, .preview-content h4 {
-            font-weight: bold;
-            margin-top: 1.2rem;
-            margin-bottom: 0.6rem;
-            color: #111;
-        }
-        .preview-content h1 { font-size: 1.8rem; }
-        .preview-content h2 { font-size: 1.4rem; }
-        .preview-content h3 { font-size: 1.2rem; }
-        
-        /* Perfect Table Layout Retention */
-        .preview-content table {
-            width: 100% !important;
-            border-collapse: collapse !important;
-            margin: 15px 0 !important;
-            table-layout: auto !important;
-        }
-        .preview-content th, .preview-content td {
-            border: 1px solid #b5b5b5 !important;
-            padding: 10px 12px !important;
-            text-align: left;
-            vertical-align: top;
-        }
-        .preview-content th {
-            background-color: #f3f4f6;
-            font-weight: bold;
-        }
+<!-- Core Libraries -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 
-        /* Strict Image Positioning & Layout Protection */
-        .preview-content img {
-            max-width: 100% !important;
-            height: auto !important;
-            display: inline-block;
-            margin: 12px auto;
-            object-fit: contain;
-            page-break-inside: avoid;
-            break-inside: avoid;
-        }
+<!-- Firebase Compat SDKs -->
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 
-        /* Avoid forcing every table to full width: keep imported dimensions where possible */
-        .preview-content * { box-sizing: border-box; }
-        .preview-content img { max-width: 100%; height: auto; }
-        .preview-content .docx-wrapper { padding: 0 !important; background: #fff !important; }
-        .preview-content .docx { margin: 0 auto !important; box-shadow: none !important; }
-        #docxRenderHost { position: fixed; left: -30000px; top: 0; width: 900px; background: #fff; }
-        #docxRenderHost .docx-wrapper { background: #fff !important; }
-        #docxRenderHost .docx { box-shadow: none !important; }
-        .pdf-page-image { display:block; width:100%; height:auto; margin:0 auto; page-break-after:always; break-after:page; }
-        .pdf-page-image:last-child { page-break-after:auto; break-after:auto; }
-        /* Keep rendered DOCX pages at their own page size instead of forcing all pages into one flow. */
-        #outputPreview .docx-wrapper { padding:0 !important; background:#fff !important; }
-        #outputPreview .docx { margin:0 auto !important; box-shadow:none !important; }
-        #outputPreview .docx table { max-width:100%; }
-        #outputPreview .docx img { max-width:100%; }
-        .amarkaj-word-page { margin:0; padding:0; border:0; page-break-after:always; break-after:page; }
-        .amarkaj-word-page:last-child { page-break-after:auto; break-after:auto; }
-        /* A4 portrait canvas for PDF export and print preview */
-        .amarkaj-a4-export { width:210mm !important; min-width:210mm !important; max-width:210mm !important; margin:0 auto !important; background:#fff !important; }
-        @page { size:A4 portrait; margin:0; }
-        @media print {
-            html, body { width:210mm; margin:0 !important; padding:0 !important; background:#fff !important; }
-            #outputPreview { width:210mm !important; max-width:210mm !important; margin:0 !important; padding:0 !important; border:0 !important; overflow:visible !important; }
-            .amarkaj-a4-export { width:210mm !important; min-width:210mm !important; max-width:210mm !important; }
-        }
-    </style>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap');
+
+* { box-sizing: border-box; }
+body { font-family: 'Hind Siliguri', 'Inter', sans-serif; background: #f8fafc; color: #0f172a; margin: 0; }
+:root { --navy: #0f172a; --blue: #2563eb; --cyan: #06b6d4; }
+
+.hero-gradient {
+  background: radial-gradient(circle at top right, #1e40af, #0f172a 70%);
+}
+.glass-card {
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(12px);
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  box-shadow: 0 10px 30px -5px rgba(15, 23, 42, 0.05);
+}
+.btn {
+  padding: 10px 18px;
+  border-radius: 12px;
+  font-weight: 700;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+}
+.btn:active { transform: scale(0.98); }
+.primary { background: #2563eb; color: #fff; box-shadow: 0 4px 14px 0 rgba(37, 99, 235, 0.3); }
+.primary:hover { background: #1d4ed8; }
+.soft { background: #eff6ff; color: #1d4ed8; border: 1px solid #dbeafe; }
+.soft:hover { background: #dbeafe; }
+.dark-btn { background: #0f172a; color: #fff; }
+.dark-btn:hover { background: #1e293b; }
+
+.input {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  padding: 10px 14px;
+  background: #ffffff;
+  outline: none;
+  transition: 0.2s;
+  font-size: 14px;
+}
+.input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15); }
+
+.view { max-width: 1280px; margin: auto; padding: 24px 16px; }
+.hidden-view { display: none !important; }
+
+.tool-tile {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 16px;
+  text-align: left;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  position: relative;
+  overflow: hidden;
+}
+.tool-tile:hover {
+  transform: translateY(-3px);
+  border-color: #60a5fa;
+  box-shadow: 0 12px 24px -8px rgba(37, 99, 235, 0.15);
+}
+.tool-tile.active-tool {
+  border: 2px solid #2563eb;
+  background: #eff6ff;
+}
+
+.navbtn {
+  padding: 8px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #475569;
+  transition: 0.2s;
+  white-space: nowrap;
+}
+.navbtn:hover { background: #f1f5f9; color: #0f172a; }
+.navbtn.active { background: #2563eb; color: #ffffff; }
+
+.stat-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 18px;
+}
+
+.pill { display: inline-block; border-radius: 99px; padding: 4px 10px; font-size: 11px; font-weight: 700; background: #f1f5f9; }
+.pending { background: #fef3c7; color: #92400e; }
+.paid { background: #dcfce7; color: #166534; }
+
+.tablewrap { overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 14px; }
+.data { width: 100%; min-width: 650px; border-collapse: collapse; }
+.data th, .data td { padding: 12px; border-bottom: 1px solid #e2e8f0; text-align: left; font-size: 13px; }
+.data th { background: #f8fafc; font-weight: 700; color: #334155; }
+
+#legacyFrame { width: 100%; height: 85vh; border: 0; background: white; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.06); }
+#photoCanvas { max-width: 100%; max-height: 460px; border: 1px solid #cbd5e1; border-radius: 10px; }
+.touch-none { touch-action: none; }
+.free-badge { display: inline-flex; align-items: center; gap: 4px; background: #dcfce7; color: #15803d; border-radius: 99px; padding: 2px 9px; font-size: 11px; font-weight: 800; }
+
+/* Custom Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #f1f5f9; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+/* Toast Notification */
+#globalToast {
+  position: fixed; bottom: 24px; right: 24px; z-index: 9999;
+  background: #0f172a; color: #fff; padding: 12px 20px;
+  border-radius: 12px; font-size: 14px; font-weight: 600;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+  transform: translateY(100px); opacity: 0; transition: all 0.3s ease;
+}
+#globalToast.show { transform: translateY(0); opacity: 1; }
+</style>
 </head>
-<body class="bg-gray-50 text-gray-800 flex flex-col min-h-screen">
+<body>
 
-    <!-- Header Navigation -->
-    <header class="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
-        <div class="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-            <a href="#" class="flex items-center gap-3 text-primary-500 font-bold text-xl tracking-tight hover:opacity-90 transition">
-                <div class="w-10 h-10 rounded-xl bg-primary-500 flex items-center justify-center text-white shadow-md shadow-red-200">
-                    <i class="fa-solid fa-file-contract text-xl"></i>
-                </div>
-                <span>Amarkaj Pro Tools</span>
-            </a>
-            <div class="flex items-center gap-2 text-xs sm:text-sm font-medium text-gray-500 bg-gray-100 px-3 py-1.5 rounded-full">
-                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span>100% Client-Side Engine</span>
-            </div>
+<!-- Global Toast -->
+<div id="globalToast"><i class="fa-solid fa-circle-info text-blue-400 mr-2"></i><span id="toastMsg"></span></div>
+
+<!-- Top Navigation Header -->
+<header class="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200">
+  <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+    <button onclick="go('home')" class="flex items-center gap-3 group">
+      <span class="w-11 h-11 rounded-2xl hero-gradient text-white grid place-items-center shadow-md group-hover:scale-105 transition">
+        <i class="fa-solid fa-wand-magic-sparkles text-lg text-cyan-300"></i>
+      </span>
+      <span class="text-left">
+        <b class="text-xl tracking-tight text-slate-900 flex items-center gap-2">AMARKAJ AI <span class="text-[10px] bg-blue-600 text-white px-2 py-0.5 rounded-full">PRO v6</span></b>
+        <small class="block text-xs text-slate-500 font-medium">Complete Document & Photo Studio</small>
+      </span>
+    </button>
+
+    <nav class="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+      <button id="nav-home" class="navbtn active" onclick="go('home',this)"><i class="fa-solid fa-house mr-1"></i> হোম</button>
+      <button id="nav-tools" class="navbtn" onclick="go('tools',this)"><i class="fa-solid fa-toolbox mr-1"></i> All Tools Window (24+)</button>
+      <button id="nav-services" class="navbtn" onclick="go('services',this)"><i class="fa-solid fa-print mr-1"></i> Print Order</button>
+      <button id="nav-customer" class="navbtn" onclick="go('customer',this)"><i class="fa-solid fa-user mr-1"></i> Customer</button>
+      <button id="nav-admin" class="navbtn" onclick="go('admin',this)"><i class="fa-solid fa-shield-halved mr-1"></i> Admin</button>
+      <button id="nav-settings" class="navbtn" onclick="go('settings',this)"><i class="fa-solid fa-database mr-1"></i> Firebase</button>
+    </nav>
+  </div>
+</header>
+
+<!-- ==================== 1. PROFESSIONAL HOME PAGE ==================== -->
+<section id="home" class="view">
+  <!-- Hero Section -->
+  <div class="hero-gradient rounded-3xl p-7 sm:p-12 text-white relative overflow-hidden shadow-xl">
+    <div class="absolute -right-20 -top-20 w-80 h-80 bg-blue-500/20 rounded-full blur-3xl pointer-events-none"></div>
+    <div class="absolute -left-20 -bottom-20 w-80 h-80 bg-cyan-500/20 rounded-full blur-3xl pointer-events-none"></div>
+    
+    <div class="relative z-10 max-w-3xl">
+      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/20 text-xs font-bold text-cyan-300 mb-4">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> 100% FREE DIGITAL WORKSPACE • CLIENT-SIDE ENGINE
+      </div>
+      <h1 class="text-3xl sm:text-5xl font-extrabold leading-tight">
+        আপনার সকল ডিজিটাল ও অফিস কাজের <span class="text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 to-blue-400">স্মার্ট সমাধান</span>
+      </h1>
+      <p class="text-slate-300 mt-4 text-base sm:text-lg leading-relaxed">
+        পাসপোর্ট ছবি, NID ও ডকুমেন্ট স্ক্যান, PDF ↔ Word কনভার্টার, Teletalk ফটো রিসাইজার, বাংলা OCR, CV ও চাকরির আবেদন—সব ২৪+ প্রফেশনাল টুলস ব্যবহার করুন সম্পূর্ণ বিনামূল্যে।
+      </p>
+      <div class="flex flex-wrap gap-3 mt-7">
+        <button class="btn bg-blue-600 hover:bg-blue-500 text-white px-6 py-3.5 text-base shadow-lg shadow-blue-600/30" onclick="go('tools', $('nav-tools'))">
+          <i class="fa-solid fa-grid-2"></i> সব টুলস ওপেন করুন (All Tools Window)
+        </button>
+        <button class="btn bg-white/10 hover:bg-white/20 border border-white/25 text-white px-6 py-3.5 text-base" onclick="go('converter')">
+          <i class="fa-solid fa-file-word"></i> Word ↔ PDF Converter
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quick Highlights Bar -->
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-3.5 my-7">
+    <div class="stat-card flex items-center gap-3.5">
+      <div class="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 grid place-items-center text-xl shrink-0"><i class="fa-solid fa-camera-retro"></i></div>
+      <div><b class="block text-slate-900">Photo & A4 Studio</b><small class="text-slate-500">পাসপোর্ট ও Teletalk সাইজ</small></div>
+    </div>
+    <div class="stat-card flex items-center gap-3.5">
+      <div class="w-12 h-12 rounded-2xl bg-red-50 text-red-600 grid place-items-center text-xl shrink-0"><i class="fa-solid fa-file-pdf"></i></div>
+      <div><b class="block text-slate-900">PDF & ID Tools</b><small class="text-slate-500">NID জয়েনার, স্ক্যান ও PDF</small></div>
+    </div>
+    <div class="stat-card flex items-center gap-3.5">
+      <div class="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 grid place-items-center text-xl shrink-0"><i class="fa-solid fa-file-signature"></i></div>
+      <div><b class="block text-slate-900">CV & Office Docs</b><small class="text-slate-500">CV, ইনভয়েস ও দলিল</small></div>
+    </div>
+    <div class="stat-card flex items-center gap-3.5">
+      <div class="w-12 h-12 rounded-2xl bg-purple-50 text-purple-600 grid place-items-center text-xl shrink-0"><i class="fa-solid fa-language"></i></div>
+      <div><b class="block text-slate-900">AI OCR & Translate</b><small class="text-slate-500">ছবি থেকে বাংলা টেক্সট</small></div>
+    </div>
+  </div>
+
+  <!-- Search & Category Filter on Home -->
+  <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
+    <div>
+      <h2 class="text-2xl font-extrabold text-slate-900">সকল প্রফেশনাল টুলস (Quick Launch)</h2>
+      <p class="text-sm text-slate-500">যেকোনো টুলে ক্লিক করে সরাসরি কাজ শুরু করুন</p>
+    </div>
+    <div class="relative w-full sm:w-72">
+      <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3.5 text-slate-400 text-sm"></i>
+      <input id="homeSearch" type="text" class="input pl-10" placeholder="টুল খুঁজুন (যেমন: NID, PDF, CV)..." oninput="filterHomeTools()">
+    </div>
+  </div>
+
+  <!-- All Tools Grid on Home Page -->
+  <div id="homeAllToolsGrid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3.5 mb-8"></div>
+
+  <!-- Bottom CTA Banner -->
+  <div class="glass-card p-6 flex flex-wrap items-center justify-between gap-4 border-l-4 border-l-blue-600">
+    <div>
+      <span class="text-xs font-bold text-blue-600 uppercase tracking-wider">Online Printing Service</span>
+      <h3 class="text-lg font-extrabold text-slate-900 mt-0.5">অনলাইনে প্রিন্ট বা ডকুমেন্ট অর্ডার করতে চান?</h3>
+      <p class="text-sm text-slate-500">আপনার কাজের বিবরণ ও ফাইল নির্দেশনা জমা দিন, আমরা দ্রুত প্রস্তুত করে দেব।</p>
+    </div>
+    <button class="btn dark-btn" onclick="go('services', $('nav-services'))"><i class="fa-solid fa-paper-plane"></i> অর্ডার ফর্ম খুলুন</button>
+  </div>
+</section>
+
+<!-- ==================== 2. ALL TOOLS WINDOW (WORKSPACE) ==================== -->
+<section id="tools" class="view hidden-view">
+  <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+    <div>
+      <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 flex items-center gap-2">
+        <i class="fa-solid fa-layer-group text-blue-600"></i> All Tools Studio Window
+      </h1>
+      <p class="text-sm text-slate-500">নিচের তালিকা থেকে যেকোনো টুল সিলেক্ট করুন — টুলটি নিচে ওপেন হবে।</p>
+    </div>
+    <div class="flex items-center gap-2 w-full sm:w-auto">
+      <input id="workspaceSearch" type="text" class="input sm:w-64" placeholder="টুল ফিল্টার করুন..." oninput="filterWorkspaceTools()">
+      <button class="btn soft shrink-0" onclick="go('home', $('nav-home'))"><i class="fa-solid fa-house"></i> হোম</button>
+    </div>
+  </div>
+
+  <!-- Category Filter Tabs -->
+  <div class="flex gap-2 overflow-x-auto pb-2 mb-4" id="catTabs">
+    <button class="btn primary text-xs py-2 px-3.5" onclick="setCategory('all', this)">সব টুলস (All)</button>
+    <button class="btn soft text-xs py-2 px-3.5" onclick="setCategory('photo', this)">Photo & ID Studio</button>
+    <button class="btn soft text-xs py-2 px-3.5" onclick="setCategory('pdf', this)">PDF & Scan</button>
+    <button class="btn soft text-xs py-2 px-3.5" onclick="setCategory('office', this)">Office, CV & Invoice</button>
+    <button class="btn soft text-xs py-2 px-3.5" onclick="setCategory('utility', this)">OCR, Translate & Utility</button>
+  </div>
+
+  <!-- Master Tools Selector Window -->
+  <div class="glass-card p-4 mb-6">
+    <div id="workspaceToolsGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5"></div>
+  </div>
+
+  <!-- ==================== ACTIVE TOOL WORKSPACE CONTAINER ==================== -->
+  <div id="activeToolWindow" class="space-y-5">
+
+    <!-- 1. Passport Photo & Image Enhancer -->
+    <div id="photoTool" class="glass-card p-5 sm:p-7">
+      <div class="flex justify-between items-center border-b pb-3 mb-4">
+        <h2 class="text-xl font-extrabold text-slate-900"><i class="fa-solid fa-camera text-blue-600 mr-2"></i>Passport Photo & Image Enhancer</h2>
+        <span class="free-badge">FREE</span>
+      </div>
+      <div class="grid lg:grid-cols-2 gap-6">
+        <div>
+          <label class="block text-sm font-bold mb-1">১. ছবি নির্বাচন করুন</label>
+          <input id="photoInput" type="file" accept="image/*" class="input mb-4">
+          <div class="grid grid-cols-2 gap-3.5">
+            <label class="text-xs font-bold text-slate-600">Photo Size
+              <select id="photoSize" class="input mt-1">
+                <option value="35x45">Standard 35 × 45 mm</option>
+                <option value="50x50">Square 50 × 50 mm</option>
+                <option value="45x55">Traditional 45 × 55 mm</option>
+                <option value="55x45">Landscape 55 × 45 mm</option>
+              </select>
+            </label>
+            <label class="text-xs font-bold text-slate-600">Background Color
+              <input id="photoBg" type="color" value="#ffffff" class="input mt-1 h-10 p-1">
+            </label>
+            <label class="text-xs font-bold text-slate-600">Brightness (<span id="valBright">100</span>%)
+              <input id="photoBright" type="range" min="50" max="160" value="100" class="w-full mt-1">
+            </label>
+            <label class="text-xs font-bold text-slate-600">Contrast (<span id="valContrast">100</span>%)
+              <input id="photoContrast" type="range" min="50" max="180" value="100" class="w-full mt-1">
+            </label>
+            <label class="text-xs font-bold text-slate-600">Saturation (<span id="valSat">100</span>%)
+              <input id="photoSaturation" type="range" min="0" max="200" value="100" class="w-full mt-1">
+            </label>
+            <label class="text-xs font-bold text-slate-600">Softness / Blur (<span id="valBlur">0</span>px)
+              <input id="photoBlur" type="range" min="0" max="4" step="0.5" value="0" class="w-full mt-1">
+            </label>
+          </div>
+          <div class="flex flex-wrap gap-2.5 mt-5">
+            <button class="btn primary" onclick="renderPhoto()"><i class="fa-solid fa-wand-magic-sparkles"></i> Apply</button>
+            <button class="btn soft" onclick="resetPhoto()"><i class="fa-solid fa-rotate-left"></i> Reset</button>
+            <button class="btn dark-btn" onclick="downloadPhoto()"><i class="fa-solid fa-download"></i> Single JPG</button>
+            <button class="btn soft" onclick="downloadPhotoA4()"><i class="fa-solid fa-table-cells"></i> A4 Sheet JPG</button>
+          </div>
         </div>
-    </header>
-
-    <!-- Main Section -->
-    <main class="flex-1 max-w-4xl w-full mx-auto px-4 py-8 sm:py-12">
-        <div class="text-center mb-8">
-            <h1 class="text-2xl sm:text-3xl font-extrabold text-gray-900 mb-2 sm:mb-3">
-                পেশাদার ডকুমেন্ট কনভার্টার
-            </h1>
-            <p class="text-gray-600 text-sm sm:text-base max-w-xl mx-auto">
-                Word থেকে PDF এবং PDF থেকে Word-compatible ফাইল তৈরি করুন। মূল layout যতটা সম্ভব রাখে; PDF থেকে Word-এ পৃষ্ঠা-ছবি ব্যবহার করে দৃশ্যমান বিন্যাস সংরক্ষণ করে[cite: 2].
-            </p>
+        <div class="bg-slate-100 rounded-2xl p-4 flex flex-col items-center justify-center border border-slate-200">
+          <canvas id="photoCanvas" width="413" height="531" class="bg-white shadow-md"></canvas>
+          <p id="photoHint" class="text-xs font-medium text-slate-500 mt-3">প্রথমে ছবি নির্বাচন করুন (300 DPI প্রিন্ট রেডি)</p>
         </div>
+      </div>
+    </div>
 
-        <!-- Main Card -->
-        <div class="bg-white rounded-2xl border border-gray-200 shadow-xl overflow-hidden">
-            <!-- Navigation Tabs -->
-            <div class="flex border-b border-gray-200 bg-gray-50/70 p-1.5 sm:p-2 gap-1.5 sm:gap-2">
-                <button id="tab-wordToPdf" onclick="switchTab('wordToPdf')" 
-                        class="flex-1 py-3 px-4 rounded-xl font-semibold text-sm sm:text-base flex items-center justify-center gap-2 transition-all duration-200 bg-white text-primary-500 shadow-sm border border-gray-100">
-                    <i class="fa-solid fa-file-word text-lg"></i>
-                    <span>Word to PDF</span>
-                </button>
-                <button id="tab-pdfToWord" onclick="switchTab('pdfToWord')" 
-                        class="flex-1 py-3 px-4 rounded-xl font-semibold text-sm sm:text-base flex items-center justify-center gap-2 transition-all duration-200 text-gray-600 hover:text-gray-900 hover:bg-white/60">
-                    <i class="fa-solid fa-file-pdf text-lg"></i>
-                    <span>PDF to Word</span>
-                </button>
-            </div>
-
-            <div class="p-6 sm:p-8">
-                <!-- Toast Notification Container -->
-                <div id="toast" class="hidden mb-4 p-4 rounded-xl text-sm font-medium flex items-center gap-3 transition-all"></div>
-
-                <!-- Word to PDF Section -->
-                <div id="wordToPdfSection" class="space-y-6">
-                    <div id="wordDropzone" 
-                         onclick="document.getElementById('wordFileInput').click()"
-                         ondragover="handleDragOver(event, this)" 
-                         ondragleave="handleDragLeave(event, this)" 
-                         ondrop="handleFileDrop(event, 'wordFileInput', convertWordToPdf)"
-                         class="border-2 border-dashed border-red-200 hover:border-primary-500 bg-primary-50/40 hover:bg-primary-50/80 transition-all duration-200 rounded-2xl p-8 sm:p-12 text-center cursor-pointer group">
-                        <div class="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 text-primary-500 shadow-sm group-hover:scale-110 transition-transform">
-                            <i class="fa-solid fa-cloud-arrow-up text-3xl"></i>
-                        </div>
-                        <h3 class="text-lg font-bold text-gray-800 mb-1">Word (.docx) ফাইল নির্বাচন করুন</h3>
-                        <p class="text-xs sm:text-sm text-gray-500 mb-3">এখানে ক্লিক করুন অথবা ডক ফাইল টেনে আনুন</p>
-                        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-primary-700">
-                            .docx সমর্থিত (টেবিল ও ছবি সহ)
-                        </span>
-                    </div>
-                    <input type="file" id="wordFileInput" accept=".docx" class="hidden" onchange="convertWordToPdf()">
-                </div>
-
-                <!-- PDF to Word Section -->
-                <div id="pdfToWordSection" class="space-y-6 hidden">
-                    <div id="pdfDropzone" 
-                         onclick="document.getElementById('pdfFileInput').click()"
-                         ondragover="handleDragOver(event, this)" 
-                         ondragleave="handleDragLeave(event, this)" 
-                         ondrop="handleFileDrop(event, 'pdfFileInput', convertPdfToWord)"
-                         class="border-2 border-dashed border-red-200 hover:border-primary-500 bg-primary-50/40 hover:bg-primary-50/80 transition-all duration-200 rounded-2xl p-8 sm:p-12 text-center cursor-pointer group">
-                        <div class="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 text-primary-500 shadow-sm group-hover:scale-110 transition-transform">
-                            <i class="fa-solid fa-file-pdf text-3xl"></i>
-                        </div>
-                        <h3 class="text-lg font-bold text-gray-800 mb-1">PDF ফাইল নির্বাচন করুন</h3>
-                        <p class="text-xs sm:text-sm text-gray-500 mb-3">এখানে ক্লিক করুন অথবা পিডিএফ ফাইল টেনে আনুন</p>
-                        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-primary-700">
-                            .pdf সমর্থিত
-                        </span>
-                    </div>
-                    <input type="file" id="pdfFileInput" accept=".pdf" class="hidden" onchange="convertPdfToWord()">
-                </div>
-
-                <!-- Loader Component -->
-                <div id="loader" class="hidden py-8 text-center space-y-3">
-                    <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-red-50 text-primary-500">
-                        <i class="fa-solid fa-spinner text-2xl animate-spin"></i>
-                    </div>
-                    <p id="loaderText" class="text-sm font-semibold text-gray-700">প্রসেস হচ্ছে, অনুগ্রহ করে অপেক্ষা করুন...</p>
-                </div>
-
-                <!-- File Info Bar -->
-                <div id="fileMeta" class="hidden mb-6 p-4 bg-gray-50 rounded-xl border border-gray-200 flex flex-wrap items-center justify-between gap-3 text-xs sm:text-sm">
-                    <div class="flex items-center gap-3">
-                        <i id="metaIcon" class="fa-solid text-xl"></i>
-                        <div>
-                            <div id="metaFileName" class="font-bold text-gray-800">filename.docx</div>
-                            <div id="metaFileSize" class="text-gray-500">0 KB</div>
-                        </div>
-                    </div>
-                    <div id="metaExtra" class="bg-white px-3 py-1 rounded-lg border border-gray-200 text-gray-600 font-medium"></div>
-                </div>
-
-                <!-- Preview Area -->
-                <div id="previewWrapper" class="hidden space-y-4">
-                    <div class="flex items-center justify-between">
-                        <h4 class="font-bold text-gray-800 flex items-center gap-2 text-sm sm:text-base">
-                            <i class="fa-solid fa-eye text-primary-500"></i>
-                            <span>ডকুমেন্ট প্রিভিউ ও এডিটর</span>
-                        </h4>
-                        <div class="flex items-center gap-2">
-                            <button onclick="copyExtractedText()" class="px-3 py-1.5 rounded-lg border border-gray-300 hover:bg-gray-100 text-gray-700 font-medium text-xs flex items-center gap-1.5 transition">
-                                <i class="fa-solid fa-copy"></i>
-                                <span>কপি করুন</span>
-                            </button>
-                            <button onclick="resetConverter()" class="px-3 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 font-medium text-xs flex items-center gap-1.5 transition">
-                                <i class="fa-solid fa-rotate-right"></i>
-                                <span>রিসেট</span>
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Editable Content Preview Container -->
-                    <div id="outputPreview" 
-                         contenteditable="true" 
-                         class="preview-content p-6 bg-white border border-gray-300 rounded-xl max-h-[500px] overflow-y-auto focus:outline-none focus:ring-2 focus:ring-primary-500 shadow-inner">
-                    </div>
-
-                    <!-- Action Bar -->
-                    <div id="actionArea" class="pt-2 flex flex-wrap items-center justify-end gap-3">
-                    </div>
-                </div>
-
-            </div>
+    <!-- 2. Passport Photo Studio A4 Multi-Copy -->
+    <div id="photostudioTool" class="glass-card p-5 sm:p-7 hidden">
+      <h2 class="text-xl font-extrabold mb-4"><i class="fa-solid fa-images text-blue-600 mr-2"></i>Passport Photo Studio — Custom A4 Print Sheet</h2>
+      <div class="grid lg:grid-cols-3 gap-5">
+        <div class="space-y-3">
+          <label class="block text-xs font-bold">ছবি আপলোড<input id="studioFile" type="file" accept="image/*" class="input mt-1"></label>
+          <label class="block text-xs font-bold">Preset Size
+            <select id="studioSize" class="input mt-1">
+              <option value="35x45">35×45 mm (Bangladesh Passport)</option>
+              <option value="45x55">45×55 mm (Stamp/Visa)</option>
+              <option value="50x50">50×50 mm (2×2 inch US Visa)</option>
+              <option value="custom">Custom Size</option>
+            </select>
+          </label>
+          <div class="grid grid-cols-2 gap-2">
+            <label class="text-xs font-bold">Width (mm)<input id="studioW" type="number" value="35" class="input mt-1"></label>
+            <label class="text-xs font-bold">Height (mm)<input id="studioH" type="number" value="45" class="input mt-1"></label>
+          </div>
+          <div class="grid grid-cols-3 gap-2">
+            <label class="text-xs font-bold">Copies<input id="studioCount" type="number" min="1" max="100" value="15" class="input mt-1"></label>
+            <label class="text-xs font-bold">Gap (mm)<input id="studioGap" type="number" value="3" min="0" class="input mt-1"></label>
+            <label class="text-xs font-bold">BG Color<input id="studioBg" type="color" value="#ffffff" class="input mt-1 h-10 p-1"></label>
+          </div>
+          <div class="flex flex-wrap gap-2 pt-2">
+            <button class="btn primary w-full" onclick="makeStudioSheet()"><i class="fa-solid fa-table-cells"></i> Generate A4 Sheet</button>
+            <button class="btn dark-btn flex-1" onclick="canvasPdf('studioCanvas','passport-photo-a4.pdf')"><i class="fa-solid fa-file-pdf"></i> PDF</button>
+            <button class="btn soft flex-1" onclick="downloadCanvas('studioCanvas','passport-photo-a4.png')"><i class="fa-solid fa-image"></i> PNG</button>
+            <button class="btn soft flex-1" onclick="printCanvas('studioCanvas')"><i class="fa-solid fa-print"></i> Print</button>
+          </div>
         </div>
-    </main>
-
-    <!-- Footer -->
-    <footer class="bg-gray-900 text-gray-400 py-6 border-t border-gray-800 mt-auto">
-        <div class="max-w-4xl mx-auto px-4 text-center text-xs sm:text-sm space-y-2">
-            <p>&copy; 2026 Amarkaj Pro Tools - All Rights Reserved.</p>
+        <div class="lg:col-span-2 bg-slate-100 rounded-2xl p-4 grid place-items-center border">
+          <canvas id="studioCanvas" class="max-w-full max-h-[450px] bg-white shadow"></canvas>
         </div>
-    </footer>
+      </div>
+    </div>
 
-    <div id="docxRenderHost" aria-hidden="true"></div>
+    <!-- 3. NID Front + Back Joiner -->
+    <div id="nidjoinTool" class="glass-card p-5 sm:p-7 hidden">
+      <h2 class="text-xl font-extrabold mb-4"><i class="fa-solid fa-id-card text-blue-600 mr-2"></i>NID / Smart Card Front + Back Joiner</h2>
+      <div class="grid sm:grid-cols-3 gap-3 mb-4">
+        <label class="text-xs font-bold">সামনের অংশ (Front)<input id="nidFront" type="file" accept="image/*" class="input mt-1"></label>
+        <label class="text-xs font-bold">পিছনের অংশ (Back)<input id="nidBack" type="file" accept="image/*" class="input mt-1"></label>
+        <label class="text-xs font-bold">লেআউট (Layout)
+          <select id="nidLayout" class="input mt-1">
+            <option value="vertical">এক পেজে উপর-নিচ (Vertical)</option>
+            <option value="horizontal">এক ফ্রেমে পাশাপাশি (Horizontal)</option>
+          </select>
+        </label>
+      </div>
+      <div class="flex flex-wrap gap-2 mb-4">
+        <button class="btn primary" onclick="makeNidJoin(false)"><i class="fa-solid fa-object-group"></i> Preview Join</button>
+        <button class="btn dark-btn" onclick="makeNidJoin(true)"><i class="fa-solid fa-file-pdf"></i> Join & Download PDF</button>
+        <button class="btn soft" onclick="downloadCanvas('nidCanvas','nid-joined.png')"><i class="fa-solid fa-download"></i> PNG</button>
+        <button class="btn soft" onclick="printCanvas('nidCanvas')"><i class="fa-solid fa-print"></i> Print</button>
+      </div>
+      <canvas id="nidCanvas" class="w-full max-h-96 object-contain bg-slate-100 rounded-xl border"></canvas>
+    </div>
 
-    <!-- Conversion Logic Script -->
-    <script>
-        window.addEventListener('load', () => {
-            if (window.pdfjsLib) {
-                pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-            }
-        });
+    <!-- 4. ID Card Crop to PDF -->
+    <div id="idcropTool" class="glass-card p-5 sm:p-7 hidden">
+      <h2 class="text-xl font-extrabold mb-3"><i class="fa-solid fa-address-card text-blue-600 mr-2"></i>ID Card Image to A4 PDF</h2>
+      <input id="idFile" type="file" accept="image/*" class="input mb-3">
+      <div class="flex gap-2 mb-3">
+        <button class="btn primary" onclick="cropToPdf('id')"><i class="fa-solid fa-file-pdf"></i> Download ID Card PDF</button>
+        <button class="btn soft" onclick="printCanvas('idCanvas')"><i class="fa-solid fa-print"></i> Print</button>
+      </div>
+      <canvas id="idCanvas" class="w-full max-h-96 object-contain bg-slate-100 rounded-xl border"></canvas>
+    </div>
 
-        let currentTab = 'wordToPdf';
-        let currentFileName = '';
+    <!-- 5. Passport Crop to PDF -->
+    <div id="passcropTool" class="glass-card p-5 sm:p-7 hidden">
+      <h2 class="text-xl font-extrabold mb-3"><i class="fa-solid fa-passport text-blue-600 mr-2"></i>Passport Page to PDF</h2>
+      <div class="grid sm:grid-cols-2 gap-3 mb-3">
+        <input id="passFile" type="file" accept="image/*" class="input">
+        <select id="passFormat" class="input">
+          <option value="a4">A4 Page Size</option>
+          <option value="a5">A5 Page Size</option>
+        </select>
+      </div>
+      <div class="flex gap-2 mb-3">
+        <button class="btn primary" onclick="cropToPdf('pass')"><i class="fa-solid fa-file-pdf"></i> Download Passport PDF</button>
+        <button class="btn soft" onclick="printCanvas('passCanvas')"><i class="fa-solid fa-print"></i> Print</button>
+      </div>
+      <canvas id="passCanvas" class="w-full max-h-96 object-contain bg-slate-100 rounded-xl border"></canvas>
+    </div>
 
-        function switchTab(tab) {
-            currentTab = tab;
-            const wordTabBtn = document.getElementById('tab-wordToPdf');
-            const pdfTabBtn = document.getElementById('tab-pdfToWord');
-            const wordSection = document.getElementById('wordToPdfSection');
-            const pdfSection = document.getElementById('pdfToWordSection');
+    <!-- 6. A4 Document Scanner & Cleanup -->
+    <div id="scanTool" class="glass-card p-5 sm:p-7 hidden">
+      <h2 class="text-xl font-extrabold mb-3"><i class="fa-solid fa-print text-blue-600 mr-2"></i>A4 Document Scan & CamScanner Cleanup</h2>
+      <input id="scanFile" type="file" accept="image/*" class="input mb-3">
+      <div class="grid sm:grid-cols-3 gap-4 mb-3 bg-slate-50 p-3 rounded-xl border">
+        <label class="text-xs font-bold">Brightness<input id="scanBright" type="range" min="50" max="180" value="115" class="w-full mt-1" oninput="renderScan()"></label>
+        <label class="text-xs font-bold">Contrast<input id="scanContrast" type="range" min="50" max="220" value="145" class="w-full mt-1" oninput="renderScan()"></label>
+        <label class="text-xs font-bold flex items-center gap-2 pt-3"><input id="scanGray" type="checkbox" class="w-4 h-4" onchange="renderScan()"> Black & White (Document Mode)</label>
+      </div>
+      <div class="flex flex-wrap gap-2 mb-3">
+        <button class="btn primary" onclick="renderScan()"><i class="fa-solid fa-wand-sparkles"></i> Apply Scan Filter</button>
+        <button class="btn dark-btn" onclick="canvasPdf('scanCanvas','scanned-document.pdf')"><i class="fa-solid fa-file-pdf"></i> Download A4 PDF</button>
+        <button class="btn soft" onclick="printCanvas('scanCanvas')"><i class="fa-solid fa-print"></i> Print</button>
+      </div>
+      <canvas id="scanCanvas" class="w-full max-h-96 object-contain bg-slate-100 rounded-xl border"></canvas>
+    </div>
 
-            resetConverter();
+    <!-- 7. Teletalk Photo & Signature Resizer -->
+    <div id="teletalkTool" class="glass-card p-5 sm:p-7 hidden">
+      <h2 class="text-xl font-extrabold mb-3"><i class="fa-solid fa-user-check text-blue-600 mr-2"></i>Teletalk & Govt Job Photo / Signature Resizer</h2>
+      <div class="grid sm:grid-cols-3 gap-3 mb-4">
+        <label class="text-xs font-bold">ছবি বা স্বাক্ষর নির্বাচন<input id="teleFile" type="file" accept="image/*" class="input mt-1"></label>
+        <label class="text-xs font-bold">সাইজ নির্ধারণ
+          <select id="teleType" class="input mt-1">
+            <option value="300x300">Applicant Photo (300 × 300 px)</option>
+            <option value="300x80">Signature (300 × 80 px)</option>
+            <option value="300x100">Signature Alt (300 × 100 px)</option>
+          </select>
+        </label>
+        <label class="text-xs font-bold">Max File Size (KB)<input id="teleKb" type="number" value="100" class="input mt-1"></label>
+      </div>
+      <button class="btn primary" onclick="resizeTeletalk()"><i class="fa-solid fa-compress"></i> Resize & Download JPG</button>
+      <p id="teleStatus" class="text-sm font-bold text-emerald-700 mt-2"></p>
+    </div>
 
-            if (tab === 'wordToPdf') {
-                wordTabBtn.className = "flex-1 py-3 px-4 rounded-xl font-semibold text-sm sm:text-base flex items-center justify-center gap-2 transition-all duration-200 bg-white text-primary-500 shadow-sm border border-gray-100";
-                pdfTabBtn.className = "flex-1 py-3 px-4 rounded-xl font-semibold text-sm sm:text-base flex items-center justify-center gap-2 transition-all duration-200 text-gray-600 hover:text-gray-900 hover:bg-white/60";
-                wordSection.classList.remove('hidden');
-                pdfSection.classList.add('hidden');
-            } else {
-                pdfTabBtn.className = "flex-1 py-3 px-4 rounded-xl font-semibold text-sm sm:text-base flex items-center justify-center gap-2 transition-all duration-200 bg-white text-primary-500 shadow-sm border border-gray-100";
-                wordTabBtn.className = "flex-1 py-3 px-4 rounded-xl font-semibold text-sm sm:text-base flex items-center justify-center gap-2 transition-all duration-200 text-gray-600 hover:text-gray-900 hover:bg-white/60";
-                pdfSection.classList.remove('hidden');
-                wordSection.classList.add('hidden');
-            }
-        }
+    <!-- 8. Image Compressor & KB Limiter -->
+    <div id="compressTool" class="glass-card p-5 sm:p-7 hidden">
+      <h2 class="text-xl font-extrabold mb-3"><i class="fa-solid fa-file-zipper text-blue-600 mr-2"></i>Image Compressor & Exact KB Limiter</h2>
+      <div class="grid sm:grid-cols-3 gap-3 mb-4">
+        <label class="text-xs font-bold">ছবি নির্বাচন<input id="compressFile" type="file" accept="image/*" class="input mt-1"></label>
+        <label class="text-xs font-bold">Target Max KB<input id="targetKb" type="number" value="100" min="5" class="input mt-1"></label>
+        <label class="text-xs font-bold">Format
+          <select id="compressFormat" class="input mt-1">
+            <option value="image/jpeg">JPG (Standard)</option>
+            <option value="image/webp">WebP (Modern)</option>
+          </select>
+        </label>
+      </div>
+      <button class="btn primary" onclick="compressImage()"><i class="fa-solid fa-download"></i> Compress & Download</button>
+      <p id="compressStatus" class="text-sm font-bold text-blue-700 mt-2"></p>
+    </div>
 
-        function handleDragOver(e, element) {
-            e.preventDefault();
-            element.classList.add('bg-red-100/50', 'border-primary-500');
-        }
+    <!-- 9. Bulk Image Converter & Image to PDF -->
+    <div id="bulkTool" class="glass-card p-5 sm:p-7 hidden">
+      <h2 class="text-xl font-extrabold mb-3"><i class="fa-solid fa-layer-group text-blue-600 mr-2"></i>Bulk Image Converter / Multiple Images to PDF</h2>
+      <input id="bulkFiles" type="file" multiple accept="image/*" class="input mb-4">
+      <div class="flex flex-wrap gap-3">
+        <button class="btn primary" onclick="bulkToPdf()"><i class="fa-solid fa-file-pdf"></i> Combine All to Single PDF</button>
+        <button class="btn soft" onclick="bulkConvert()"><i class="fa-solid fa-images"></i> Convert All to JPG</button>
+      </div>
+      <p id="bulkStatus" class="text-sm font-bold text-emerald-700 mt-2"></p>
+    </div>
 
-        function handleDragLeave(e, element) {
-            e.preventDefault();
-            element.classList.remove('bg-red-100/50', 'border-primary-500');
-        }
+    <!-- 10. PDF to High-res Images -->
+    <div id="pdfimageTool" class="glass-card p-5 sm:p-7 hidden">
+      <h2 class="text-xl font-extrabold mb-3"><i class="fa-solid fa-file-image text-blue-600 mr-2"></i>PDF Pages to High-Resolution PNG Images</h2>
+      <div class="grid sm:grid-cols-2 gap-3 mb-4">
+        <label class="text-xs font-bold">PDF ফাইল নির্বাচন<input id="pdfImageFile" type="file" accept="application/pdf" class="input mt-1"></label>
+        <label class="text-xs font-bold">Quality Scale (1x - 5x)<input id="pdfScale" type="number" value="2.5" min="1" max="5" step="0.5" class="input mt-1"></label>
+      </div>
+      <button class="btn primary" onclick="pdfToImages()"><i class="fa-solid fa-bolt"></i> Extract All Pages as PNG</button>
+      <p id="pdfImageStatus" class="text-sm font-bold text-blue-700 mt-2"></p>
+    </div>
 
-        function handleFileDrop(e, inputId, callback) {
-            e.preventDefault();
-            const files = e.dataTransfer.files;
-            if (files.length > 0) {
-                const input = document.getElementById(inputId);
-                input.files = files;
-                callback();
-            }
-        }
+    <!-- 11. Professional CV Maker -->
+    <div id="cvTool" class="glass-card p-5 sm:p-7 hidden">
+      <h2 class="text-xl font-extrabold mb-4"><i class="fa-solid fa-id-badge text-blue-600 mr-2"></i>Professional CV & Resume Maker</h2>
+      <div class="grid sm:grid-cols-2 gap-3.5">
+        <label class="text-xs font-bold">Full Name<input id="cvName" class="input mt-1" placeholder="e.g. Md. Rahat Hasan"></label>
+        <label class="text-xs font-bold">Phone & Email<input id="cvContact" class="input mt-1" placeholder="017XXXXXXXX | email@domain.com"></label>
+        <label class="text-xs font-bold">Present Address<input id="cvAddress" class="input mt-1" placeholder="Dhaka, Bangladesh"></label>
+        <label class="text-xs font-bold">Career Objective<textarea id="cvObjective" class="input mt-1" rows="2" placeholder="To build a career in a reputed organization..."></textarea></label>
+        <label class="text-xs font-bold">Educational Qualification<textarea id="cvEducation" class="input mt-1" rows="3" placeholder="B.Sc in CSE - Passing Year 2024..."></textarea></label>
+        <label class="text-xs font-bold">Work Experience<textarea id="cvExperience" class="input mt-1" rows="3" placeholder="Executive Officer at XYZ Ltd (2024 - Present)..."></textarea></label>
+        <label class="text-xs font-bold">Computer & Technical Skills<textarea id="cvSkills" class="input mt-1" rows="2" placeholder="MS Office, Graphics Design, Data Entry..."></textarea></label>
+        <label class="text-xs font-bold">Languages & Personal Info<textarea id="cvLanguages" class="input mt-1" rows="2" placeholder="Bengali (Native), English (Fluent) | Father's Name, NID..."></textarea></label>
+      </div>
+      <div class="flex flex-wrap gap-2.5 mt-4">
+        <button class="btn primary" onclick="previewCV()"><i class="fa-solid fa-eye"></i> Preview CV</button>
+        <button class="btn dark-btn" onclick="printCV()"><i class="fa-solid fa-print"></i> Print / Save as PDF</button>
+        <button class="btn soft" onclick="downloadCV()"><i class="fa-solid fa-download"></i> Download HTML</button>
+      </div>
+      <div id="cvPreview" class="border rounded-2xl p-6 mt-5 bg-white text-slate-800 shadow-inner"></div>
+    </div>
 
-        function showToast(message, type = 'success') {
-            const toast = document.getElementById('toast');
-            toast.classList.remove('hidden', 'bg-red-100', 'text-red-700', 'bg-emerald-100', 'text-emerald-700');
-            
-            if (type === 'error') {
-                toast.classList.add('bg-red-100', 'text-red-700');
-                toast.innerHTML = `<i class="fa-solid fa-circle-exclamation"></i> <span>${message}</span>`;
-            } else {
-                toast.classList.add('bg-emerald-100', 'text-emerald-700');
-                toast.innerHTML = `<i class="fa-solid fa-circle-check"></i> <span>${message}</span>`;
-            }
-        }
+    <!-- 12. Job Application Maker -->
+    <div id="jobTool" class="glass-card p-5 sm:p-7 hidden">
+      <h2 class="text-xl font-extrabold mb-4"><i class="fa-solid fa-envelope-open-text text-blue-600 mr-2"></i>চাকরির আবেদনপত্র তৈরি (বাংলা)</h2>
+      <div class="grid sm:grid-cols-2 gap-3.5">
+        <label class="text-xs font-bold">প্রতিষ্ঠানের নাম ও ঠিকানা<input id="jobCompany" class="input mt-1" placeholder="যেমন: ব্যবস্থাপনা পরিচালক, এবিসি লিমিটেড, ঢাকা"></label>
+        <label class="text-xs font-bold">পদের নাম<input id="jobPosition" class="input mt-1" placeholder="যেমন: অফিস সহকারী / কম্পিউটার অপারেটর"></label>
+        <label class="text-xs font-bold">আবেদনকারীর নাম<input id="jobName" class="input mt-1" placeholder="আপনার পূর্ণ নাম"></label>
+        <label class="text-xs font-bold">ঠিকানা ও মোবাইল নম্বর<input id="jobContact" class="input mt-1" placeholder="গ্রাম/রোড, থানা, জেলা | মোবাইল"></label>
+        <label class="text-xs font-bold sm:col-span-2">শিক্ষাগত যোগ্যতা ও অভিজ্ঞতার সারসংক্ষেপ<textarea id="jobExtra" class="input mt-1" rows="3" placeholder="যেমন: স্নাতক পাস এবং কম্পিউটার অফিস অ্যাপ্লিকেশনে ২ বছরের বাস্তব অভিজ্ঞতা রয়েছে"></textarea></label>
+      </div>
+      <div class="flex flex-wrap gap-2.5 mt-4">
+        <button class="btn primary" onclick="previewJob()"><i class="fa-solid fa-eye"></i> প্রিভিউ দেখুন</button>
+        <button class="btn dark-btn" onclick="printJob()"><i class="fa-solid fa-print"></i> প্রিন্ট / PDF</button>
+        <button class="btn soft" onclick="downloadJob()"><i class="fa-solid fa-download"></i> ডাউনলোড</button>
+      </div>
+      <div id="jobPreview" class="border rounded-2xl p-6 mt-5 bg-white text-slate-800"></div>
+    </div>
 
-        function showLoader(text) {
-            document.getElementById('loader').classList.remove('hidden');
-            document.getElementById('loaderText').innerText = text;
-        }
+    <!-- 13. Rich Document Editor -->
+    <div id="docTool" class="glass-card p-5 sm:p-7 hidden">
+      <h2 class="text-xl font-extrabold mb-3"><i class="fa-solid fa-file-word text-blue-600 mr-2"></i>Rich Document Writer & Editor</h2>
+      <div class="flex flex-wrap gap-2 mb-3 bg-slate-100 p-2 rounded-xl">
+        <button class="btn bg-white border py-1.5 px-3" onclick="document.execCommand('bold')"><b>B</b></button>
+        <button class="btn bg-white border py-1.5 px-3" onclick="document.execCommand('italic')"><i>I</i></button>
+        <button class="btn bg-white border py-1.5 px-3" onclick="document.execCommand('underline')"><u>U</u></button>
+        <button class="btn bg-white border py-1.5 px-3" onclick="document.execCommand('justifyLeft')"><i class="fa-solid fa-align-left"></i></button>
+        <button class="btn bg-white border py-1.5 px-3" onclick="document.execCommand('justifyCenter')"><i class="fa-solid fa-align-center"></i></button>
+        <button class="btn bg-white border py-1.5 px-3" onclick="document.execCommand('insertUnorderedList')"><i class="fa-solid fa-list-ul"></i></button>
+        <button class="btn dark-btn py-1.5 px-4 ml-auto" onclick="printDoc()"><i class="fa-solid fa-print"></i> Print A4</button>
+        <button class="btn primary py-1.5 px-4" onclick="downloadDoc()"><i class="fa-solid fa-download"></i> Save HTML</button>
+      </div>
+      <div id="editableDoc" contenteditable="true" class="min-h-80 border rounded-xl p-6 bg-white text-slate-900 shadow-inner outline-none" style="line-height:1.8">
+        <h2>আপনার ডকুমেন্টের শিরোনাম লিখুন</h2>
+        <p>এখানে বাংলা বা ইংরেজিতে যেকোনো চিঠি, আবেদন বা ডকুমেন্ট টাইপ করুন...</p>
+      </div>
+    </div>
 
-        function hideLoader() {
-            document.getElementById('loader').classList.add('hidden');
-        }
+    <!-- 14. Stamp / Legal Document Writer -->
+    <div id="stampTool" class="glass-card p-5 sm:p-7 hidden">
+      <h2 class="text-xl font-extrabold mb-3"><i class="fa-solid fa-stamp text-blue-600 mr-2"></i>Non-Judicial Stamp / Deed & Agreement Writer</h2>
+      <input id="stampTitle" class="input mb-3 font-bold" placeholder="দলিল বা অঙ্গীকারনামার শিরোনাম (যেমন: বাড়ি ভাড়ার চুক্তিপত্র / অঙ্গীকারনামা)">
+      <textarea id="stampText" class="input" rows="8" placeholder="বিস্তারিত বিবরণ লিখুন..."></textarea>
+      <div class="flex flex-wrap gap-2 mt-3">
+        <button class="btn primary" onclick="buildStamp()"><i class="fa-solid fa-eye"></i> স্ট্যাম্প প্রিভিউ</button>
+        <button class="btn dark-btn" onclick="printArea('stampPreview')"><i class="fa-solid fa-print"></i> Print Stamp Paper</button>
+        <button class="btn soft" onclick="downloadArea('stampPreview','stamp-document.html')"><i class="fa-solid fa-download"></i> Download</button>
+      </div>
+      <div id="stampPreview" class="bg-white text-slate-900 p-8 mt-4 border rounded-xl"></div>
+    </div>
 
-        function formatBytes(bytes, decimals = 2) {
-            if (bytes === 0) return '0 Bytes';
-            const k = 1024;
-            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-            const i = Math.floor(Math.log(bytes) / Math.log(k));
-            return parseFloat((bytes / Math.pow(k, i)).toFixed(decimals)) + ' ' + sizes[i];
-        }
+    <!-- 15. Cash Memo & Invoice Maker -->
+    <div id="invoiceTool" class="glass-card p-5 sm:p-7 hidden">
+      <h2 class="text-xl font-extrabold mb-3"><i class="fa-solid fa-file-invoice-dollar text-blue-600 mr-2"></i>Professional Cash Memo & Invoice Generator</h2>
+      <div class="grid sm:grid-cols-2 gap-3 mb-3">
+        <input id="invShop" class="input" placeholder="দোকান বা প্রতিষ্ঠানের নাম (যেমন: আমারকাজ ডিজিটাল স্টুডিও)">
+        <input id="invCustomer" class="input" placeholder="ক্রেতার নাম (Customer Name)">
+        <input id="invPhone" class="input" placeholder="মোবাইল নম্বর">
+        <input id="invDate" type="date" class="input">
+        <textarea id="invItems" class="input sm:col-span-2" rows="5" placeholder="প্রতি লাইনে লিখুন: পণ্যের নাম, পরিমাণ, একক মূল্য&#10;Passport Photo Print, 1, 50&#10;Color Print A4, 5, 15"></textarea>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <button class="btn primary" onclick="buildInvoice()"><i class="fa-solid fa-receipt"></i> ইনভয়েস তৈরি করুন</button>
+        <button class="btn dark-btn" onclick="printArea('invoicePreview')"><i class="fa-solid fa-print"></i> Print Memo</button>
+        <button class="btn soft" onclick="downloadArea('invoicePreview','cash-memo.html')"><i class="fa-solid fa-download"></i> Download</button>
+      </div>
+      <div id="invoicePreview" class="bg-white text-slate-900 p-6 mt-4 border rounded-xl"></div>
+    </div>
 
-        function resetConverter() {
-            document.getElementById('wordFileInput').value = '';
-            document.getElementById('pdfFileInput').value = '';
-            document.getElementById('previewWrapper').classList.add('hidden');
-            document.getElementById('fileMeta').classList.add('hidden');
-            document.getElementById('toast').classList.add('hidden');
-            document.getElementById('actionArea').innerHTML = '';
-            document.getElementById('outputPreview').innerHTML = '';
-            window.__amarkajPdfPages = null;
-            document.getElementById('outputPreview').contentEditable = 'true';
-            hideLoader();
-        }
+    <!-- 16. Excel Table / CSV Generator -->
+    <div id="excelTool" class="glass-card p-5 sm:p-7 hidden">
+      <h2 class="text-xl font-extrabold mb-3"><i class="fa-solid fa-file-excel text-emerald-600 mr-2"></i>Excel Table & CSV Data Sheet Builder</h2>
+      <textarea id="excelData" class="input font-mono text-xs" rows="7" placeholder="Name,Phone,Service,Amount&#10;Karim Uddin,01711000000,CV Maker,100&#10;Salma Akter,01811000000,Passport Photo,60"></textarea>
+      <div class="flex flex-wrap gap-2 mt-3">
+        <button class="btn primary" onclick="renderCsvTable()"><i class="fa-solid fa-table"></i> Preview Table</button>
+        <button class="btn dark-btn" onclick="downloadCsv()"><i class="fa-solid fa-file-csv"></i> Download Excel (.CSV)</button>
+        <button class="btn soft" onclick="printArea('excelPreview')"><i class="fa-solid fa-print"></i> Print Table</button>
+      </div>
+      <div id="excelPreview" class="overflow-auto mt-4"></div>
+    </div>
 
-        // WORD -> PDF: use DOCX renderer to retain styles, tables, images and page breaks.
-        async function convertWordToPdf() {
-            const input = document.getElementById('wordFileInput');
-            if (!input.files || !input.files.length) return;
-            const file = input.files[0];
-            currentFileName = file.name.replace(/\.[^/.]+$/, "");
-            showLoader("Word-এর মূল formatting, ছবি ও টেবিল প্রস্তুত হচ্ছে...");
-            document.getElementById('metaIcon').className = "fa-solid fa-file-word text-blue-600";
-            document.getElementById('metaFileName').innerText = file.name;
-            document.getElementById('metaFileSize').innerText = formatBytes(file.size);
-            document.getElementById('metaExtra').innerText = "DOCX • Layout-aware";
-            document.getElementById('fileMeta').classList.remove('hidden');
+    <!-- 17. Bangla / English OCR -->
+    <div id="ocrTool" class="glass-card p-5 sm:p-7 hidden">
+      <h2 class="text-xl font-extrabold mb-3"><i class="fa-solid fa-eye text-blue-600 mr-2"></i>AI Image to Text (Bangla & English OCR)</h2>
+      <div class="grid sm:grid-cols-2 gap-3 mb-3">
+        <input id="ocrFile" type="file" accept="image/*" class="input">
+        <select id="ocrLang" class="input">
+          <option value="ben+eng">বাংলা + English (Mixed)</option>
+          <option value="ben">শুধুমাত্র বাংলা (Bengali)</option>
+          <option value="eng">Only English</option>
+        </select>
+      </div>
+      <button class="btn primary" onclick="runOcr()"><i class="fa-solid fa-wand-magic-sparkles"></i> ছবি থেকে লেখা বের করুন (Extract Text)</button>
+      <p id="ocrStatus" class="text-xs font-bold text-blue-600 mt-2"></p>
+      <textarea id="ocrResult" class="input mt-3" rows="8" placeholder="এখানে ছবির লেখাগুলো চলে আসবে..."></textarea>
+      <button class="btn soft mt-2" onclick="copyText('ocrResult')"><i class="fa-solid fa-copy"></i> Copy Extracted Text</button>
+    </div>
 
-            try {
-                if (!window.docx || typeof window.docx.renderAsync !== "function") {
-                    throw new Error("DOCX renderer লোড হয়নি। ইন্টারনেট চালু করে পেজ Reload করুন।");
-                }
-                const host = document.getElementById('docxRenderHost');
-                host.innerHTML = "";
-                await docx.renderAsync(await file.arrayBuffer(), host, null, {
-                    className: "docx",
-                    inWrapper: true,
-                    ignoreWidth: false,
-                    ignoreHeight: false,
-                    ignoreFonts: false,
-                    breakPages: true,
-                    ignoreLastRenderedPageBreak: false,
-                    experimental: true,
-                    trimXmlDeclaration: true,
-                    useBase64URL: true
-                });
+    <!-- 18. English <-> Bangla Translator -->
+    <div id="translateTool" class="glass-card p-5 sm:p-7 hidden">
+      <h2 class="text-xl font-extrabold mb-3"><i class="fa-solid fa-language text-blue-600 mr-2"></i>Instant English ↔ বাংলা Translator</h2>
+      <select id="transDir" class="input mb-3 font-bold">
+        <option value="en|bn">English → বাংলা (ইংরেজি থেকে বাংলা)</option>
+        <option value="bn|en">বাংলা → English (বাংলা থেকে ইংরেজি)</option>
+      </select>
+      <div class="grid sm:grid-cols-2 gap-3">
+        <textarea id="transInput" class="input" rows="6" placeholder="এখানে মূল লেখা দিন..."></textarea>
+        <textarea id="transOutput" class="input bg-slate-50" rows="6" placeholder="অনুবাদ এখানে দেখাবে..."></textarea>
+      </div>
+      <div class="flex gap-2 mt-3">
+        <button class="btn primary" onclick="translateText()"><i class="fa-solid fa-arrows-rotate"></i> অনুবাদ করুন (Translate)</button>
+        <button class="btn soft" onclick="copyText('transOutput')"><i class="fa-solid fa-copy"></i> কপি করুন</button>
+      </div>
+    </div>
 
-                const preview = document.getElementById('outputPreview');
-                preview.innerHTML = "";
-                const rendered = host.querySelector('.docx-wrapper') || host;
-                const renderedClone = rendered.cloneNode(true);
-                renderedClone.classList.add('amarkaj-a4-export');
-                preview.appendChild(renderedClone);
-                preview.contentEditable = "true";
-                document.getElementById('previewWrapper').classList.remove('hidden');
-                document.getElementById('actionArea').innerHTML = `
-                    <button onclick="downloadPdfFile()" class="w-full sm:w-auto px-6 py-3 bg-primary-500 hover:bg-primary-600 text-white font-bold rounded-xl shadow-lg transition flex items-center justify-center gap-2">
-                        <i class="fa-solid fa-file-pdf"></i><span>PDF ডাউনলোড করুন</span>
-                    </button>`;
-                hideLoader();
-                showToast("A4 Portrait PDF প্রস্তুত। পৃষ্ঠা, ছবি ও টেবিলের layout যতটা সম্ভব রাখা হয়েছে; ডাউনলোড করা PDF যাচাই করুন।");
-            } catch (err) {
-                hideLoader();
-                showToast("Word ফাইল প্রসেস করা যায়নি: " + (err.message || err), "error");
-            }
-        }
+    <!-- 19. Digital Signature Pad -->
+    <div id="signatureTool" class="glass-card p-5 sm:p-7 hidden">
+      <h2 class="text-xl font-extrabold mb-3"><i class="fa-solid fa-signature text-blue-600 mr-2"></i>Transparent Digital Signature Pad</h2>
+      <p class="text-xs text-slate-500 mb-2">মাউস বা আঙুল দিয়ে নিচের বক্সে স্বাক্ষর করুন (Transparent PNG হিসেবে ডাউনলোড হবে)</p>
+      <canvas id="sigCanvas" width="900" height="280" class="w-full border-2 border-dashed border-slate-300 rounded-2xl bg-white touch-none cursor-crosshair"></canvas>
+      <div class="flex gap-2 mt-3">
+        <button class="btn soft" onclick="clearSignature()"><i class="fa-solid fa-eraser"></i> মুছে ফেলুন (Clear)</button>
+        <button class="btn primary" onclick="downloadCanvas('sigCanvas','digital-signature.png')"><i class="fa-solid fa-download"></i> Download PNG Signature</button>
+      </div>
+    </div>
 
-        // WORD -> PDF: render each DOCX page separately to avoid reflowing the entire document.
-        async function downloadPdfFile() {
-            const preview = document.getElementById('outputPreview');
-            if (!preview || !preview.innerHTML.trim()) {
-                showToast("ডাউনলোড করার মতো কন্টেন্ট নেই।", "error"); return;
-            }
-            showLoader("প্রতিটি Word পৃষ্ঠা আলাদাভাবে PDF-এ নেওয়া হচ্ছে...");
-            try {
-                if (!window.html2pdf) throw new Error("PDF লাইব্রেরি লোড হয়নি। ইন্টারনেট চালু করে Reload করুন।");
-                const docxPages = Array.from(preview.querySelectorAll(".docx"));
-                const target = docxPages.length ? preview.querySelector(".docx-wrapper") || preview : preview;
-                const opt = {
-                    margin: 0,
-                    filename: (currentFileName || "document") + ".pdf",
-                    image: { type: "jpeg", quality: 1 },
-                    html2canvas: {
-                        scale: 3, useCORS: true, allowTaint: false,
-                        letterRendering: true, logging: false, backgroundColor: "#ffffff",
-                        scrollX: 0, scrollY: 0, windowWidth: Math.max(target.scrollWidth || 0, 900)
-                    },
-                    jsPDF: { unit: "mm", format: "a4", orientation: "portrait", compress: true },
-                    pagebreak: { mode: ["css", "legacy"], avoid: ["img", "tr", "table"] }
-                };
-                await html2pdf().set(opt).from(target).save();
-                hideLoader();
-                showToast("PDF তৈরি হয়েছে।");
-            } catch (err) {
-                hideLoader();
-                showToast("PDF ডাউনলোডে সমস্যা: " + (err.message || err), "error");
-            }
-        }
+    <!-- 20. Barcode Generator -->
+    <div id="barcodeTool" class="glass-card p-5 sm:p-7 hidden">
+      <h2 class="text-xl font-extrabold mb-3"><i class="fa-solid fa-barcode text-blue-600 mr-2"></i>Product & Document Barcode Generator</h2>
+      <div class="grid sm:grid-cols-2 gap-3 mb-3">
+        <input id="barcodeText" class="input" placeholder="কোড বা নম্বর লিখুন (যেমন: AMK-2026-001)">
+        <select id="barcodeFormat" class="input">
+          <option value="CODE128">CODE128 (Universal)</option>
+          <option value="CODE39">CODE39</option>
+          <option value="EAN13">EAN13 (12/13 digits)</option>
+        </select>
+      </div>
+      <button class="btn primary" onclick="makeBarcode()"><i class="fa-solid fa-qrcode"></i> Generate Barcode</button>
+      <div class="mt-4">
+        <div class="bg-white p-4 border rounded-xl inline-block"><svg id="barcodeSvg"></svg></div>
+      </div>
+      <button class="btn soft mt-2" onclick="downloadSvg()"><i class="fa-solid fa-download"></i> Download SVG</button>
+    </div>
 
-        // PDF -> Word: render every PDF page as a high-resolution image.
-        async function convertPdfToWord() {
-            const input = document.getElementById('pdfFileInput');
-            if (!input.files || !input.files.length) return;
-            const file = input.files[0];
-            currentFileName = file.name.replace(/\.[^/.]+$/, "");
-            showLoader("PDF-এর প্রতিটি পৃষ্ঠা উচ্চ রেজোলিউশনে রেন্ডার হচ্ছে...");
-            document.getElementById('metaIcon').className = "fa-solid fa-file-pdf text-red-600";
-            document.getElementById('metaFileName').innerText = file.name;
-            document.getElementById('metaFileSize').innerText = formatBytes(file.size);
+    <!-- 21. Height / Weight / Bangla & Hijri Date Converter -->
+    <div id="convertTool" class="glass-card p-5 sm:p-7 hidden">
+      <h2 class="text-xl font-extrabold mb-3"><i class="fa-solid fa-calculator text-blue-600 mr-2"></i>Height, Weight & Bangla/Hijri Date Converter</h2>
+      <div class="grid sm:grid-cols-3 gap-3 mb-4">
+        <label class="text-xs font-bold">উচ্চতা (Height in cm)<input id="heightCm" type="number" class="input mt-1" placeholder="e.g. 170"></label>
+        <label class="text-xs font-bold">ওজন (Weight in kg)<input id="weightKg" type="number" class="input mt-1" placeholder="e.g. 68"></label>
+        <label class="text-xs font-bold">ইংরেজি তারিখ (English Date)<input id="gregDate" type="date" class="input mt-1"></label>
+      </div>
+      <button class="btn primary" onclick="convertUnits()"><i class="fa-solid fa-equals"></i> হিসাব করুন (Convert)</button>
+      <div id="convertResult" class="mt-4 p-4 bg-blue-50 text-blue-900 font-bold rounded-xl border border-blue-100">ফলাফল এখানে দেখাবে...</div>
+    </div>
 
-            try {
-                if (!window.pdfjsLib) throw new Error("PDF.js লাইব্রেরি লোড হয়নি। ইন্টারনেট চালু করে Reload করুন।");
-                const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
-                document.getElementById('metaExtra').innerText = `${pdf.numPages} Page(s)`;
-                document.getElementById('fileMeta').classList.remove('hidden');
+    <!-- 22. Official Visa & Passport Links -->
+    <div id="travelTool" class="glass-card p-5 sm:p-7 hidden">
+      <h2 class="text-xl font-extrabold mb-3"><i class="fa-solid fa-plane-departure text-blue-600 mr-2"></i>Official E-Passport, Visa & Travel Portals</h2>
+      <p class="text-sm text-slate-500 mb-4">সরাসরি সরকারি ও অফিশিয়াল পোর্টালে প্রবেশ করতে নিচের লিংকে ক্লিক করুন:</p>
+      <div class="grid sm:grid-cols-2 gap-3">
+        <a href="https://www.epassport.gov.bd/" target="_blank" rel="noopener" class="tool-tile hover:border-blue-500">
+          <b class="text-blue-700"><i class="fa-solid fa-passport mr-1"></i> Bangladesh e-Passport Portal</b>
+          <small class="text-slate-500 mt-1">নতুন পাসপোর্ট আবেদন ও স্ট্যাটাস চেক</small>
+        </a>
+        <a href="https://www.visa.gov.bd/" target="_blank" rel="noopener" class="tool-tile hover:border-blue-500">
+          <b class="text-blue-700"><i class="fa-solid fa-globe mr-1"></i> Bangladesh e-Visa Portal</b>
+          <small class="text-slate-500 mt-1">ভিসা আবেদন ও যাচাইকরণ</small>
+        </a>
+        <a href="https://services.nidw.gov.bd/" target="_blank" rel="noopener" class="tool-tile hover:border-blue-500">
+          <b class="text-blue-700"><i class="fa-solid fa-id-card mr-1"></i> NID Service Wing (Bangladesh)</b>
+          <small class="text-slate-500 mt-1">জাতীয় পরিচয়পত্র সংশোধন ও ডাউনলোড</small>
+        </a>
+        <a href="https://www.biman-airlines.com/" target="_blank" rel="noopener" class="tool-tile hover:border-blue-500">
+          <b class="text-blue-700"><i class="fa-solid fa-plane mr-1"></i> Biman Bangladesh Airlines</b>
+          <small class="text-slate-500 mt-1">ফ্লাইট বুকিং ও টিকিট যাচাই</small>
+        </a>
+      </div>
+    </div>
 
-                const preview = document.getElementById('outputPreview');
-                preview.innerHTML = "";
-                preview.contentEditable = "false";
-                const pages = [];
+  </div>
+</section>
 
-                for (let i = 1; i <= pdf.numPages; i++) {
-                    document.getElementById('loaderText').innerText = `পৃষ্ঠা ${i}/${pdf.numPages} রেন্ডার হচ্ছে...`;
-                    const page = await pdf.getPage(i);
-                    const originalViewport = page.getViewport({ scale: 1 });
-                    const viewport = page.getViewport({ scale: 3 });
-                    const canvas = document.createElement("canvas");
-                    canvas.width = Math.ceil(viewport.width);
-                    canvas.height = Math.ceil(viewport.height);
-                    const ctx = canvas.getContext("2d", { alpha: false });
-                    ctx.fillStyle = "#fff";
-                    ctx.fillRect(0, 0, canvas.width, canvas.height);
-                    await page.render({ canvasContext: ctx, viewport }).promise;
-                    const dataUrl = canvas.toDataURL("image/jpeg", 0.96);
-                    pages.push({ dataUrl, width: originalViewport.width, height: originalViewport.height, pageNumber: i });
-                    const img = document.createElement("img");
-                    img.src = dataUrl;
-                    img.alt = `PDF page ${i}`;
-                    img.className = "pdf-page-image";
-                    img.style.width = "100%";
-                    img.style.maxWidth = "100%";
-                    preview.appendChild(img);
-                    canvas.width = canvas.height = 1;
-                }
+<!-- ==================== 3. ONLINE PRINT ORDER VIEW ==================== -->
+<section id="services" class="view hidden-view">
+  <div class="max-w-3xl mx-auto">
+    <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900">Online Print & Digital Service Order</h1>
+    <p class="text-sm text-slate-500 mb-5">ডিজিটাল টুলস সম্পূর্ণ ফ্রি। প্রিন্ট বা বিশেষ কাজের অর্ডার নিচে জমা দিন।</p>
+    <div class="glass-card p-6 sm:p-8">
+      <div class="grid sm:grid-cols-2 gap-4">
+        <label class="text-xs font-bold">আপনার নাম<input id="oName" class="input mt-1" placeholder="পূর্ণ নাম লিখুন"></label>
+        <label class="text-xs font-bold">মোবাইল নম্বর<input id="oPhone" class="input mt-1" placeholder="01XXXXXXXXX"></label>
+        <label class="text-xs font-bold">সার্ভিস নির্বাচন<select id="oService" class="input mt-1" onchange="calcTotal()"></select></label>
+        <label class="text-xs font-bold">কপি / পৃষ্ঠা সংখ্যা<input id="oQty" type="number" min="1" value="1" class="input mt-1" oninput="calcTotal()"></label>
+        <label class="text-xs font-bold sm:col-span-2">কাজের বিস্তারিত নির্দেশনা<textarea id="oNote" class="input mt-1" rows="3" placeholder="যেমন: A4 গ্লসি পেপারে ৬ কপি পাসপোর্ট ছবি প্রিন্ট করতে হবে..."></textarea></label>
+      </div>
+      <div class="flex justify-between items-center flex-wrap gap-3 mt-5 pt-4 border-t">
+        <div>
+          <small class="text-slate-500 block">সার্ভিস চার্জ</small>
+          <b id="oTotal" class="text-2xl text-emerald-700">ফ্রি — ৳০</b>
+        </div>
+        <button class="btn primary px-6 py-3" onclick="createOrder()"><i class="fa-solid fa-check-circle"></i> অর্ডার জমা দিন</button>
+      </div>
+    </div>
+  </div>
+</section>
 
-                window.__amarkajPdfPages = pages;
-                document.getElementById('previewWrapper').classList.remove('hidden');
-                document.getElementById('actionArea').innerHTML = `
-                    <button onclick="downloadWordDoc()" class="w-full sm:w-auto px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg transition flex items-center justify-center gap-2">
-                        <i class="fa-solid fa-file-word"></i><span>Word (.doc) ডাউনলোড করুন</span>
-                    </button>`;
-                hideLoader();
-                showToast("PDF সফলভাবে প্রস্তুত করা হয়েছে।");
-            } catch (err) {
-                hideLoader();
-                showToast("PDF রিড/রেন্ডার সমস্যা: " + (err.message || err), "error");
-            }
-        }
+<!-- ==================== 4. CUSTOMER DASHBOARD ==================== -->
+<section id="customer" class="view hidden-view">
+  <div class="flex justify-between items-center flex-wrap gap-2 mb-5">
+    <div><h1 class="text-2xl font-extrabold">Customer Dashboard</h1><p class="text-sm text-slate-500">আপনার অ্যাকাউন্ট ও অর্ডারের তালিকা।</p></div>
+    <span id="authState" class="pill">Guest Mode</span>
+  </div>
+  <div class="grid lg:grid-cols-5 gap-5">
+    <div class="glass-card p-6 lg:col-span-2">
+      <h2 class="font-bold text-lg mb-3">Login / Registration</h2>
+      <label class="text-xs font-bold">ইমেইল</label><input id="cEmail" class="input mt-1 mb-3" type="email" placeholder="you@example.com">
+      <label class="text-xs font-bold">পাসওয়ার্ড</label><input id="cPass" class="input mt-1 mb-4" type="password" placeholder="কমপক্ষে ৬ অক্ষর">
+      <div class="flex gap-2">
+        <button class="btn primary flex-1" onclick="login()">লগইন</button>
+        <button class="btn soft flex-1" onclick="signup()">রেজিস্ট্রেশন</button>
+      </div>
+      <button onclick="logout()" class="text-xs font-bold text-red-600 mt-4 hover:underline">লগআউট করুন</button>
+      <p id="cMsg" class="text-xs text-slate-500 mt-3 bg-slate-50 p-2.5 rounded-lg">Firebase সংযুক্ত না থাকলে অর্ডার এই ব্রাউজারে সেভ থাকবে।</p>
+    </div>
+    <div class="glass-card p-6 lg:col-span-3">
+      <div class="flex justify-between items-center mb-3"><h2 class="font-bold text-lg">আমার অর্ডারসমূহ</h2><button class="btn soft py-1 px-3 text-xs" onclick="loadMyOrders()"><i class="fa-solid fa-rotate"></i> রিফ্রেশ</button></div>
+      <div id="myOrders" class="text-sm text-slate-500">এখনো কোনো অর্ডার নেই।</div>
+    </div>
+  </div>
+</section>
 
-        // Word-compatible .doc export.
-        function downloadWordDoc() {
-            const preview = document.getElementById('outputPreview');
-            let content = "";
-            if (currentTab === "pdfToWord" && window.__amarkajPdfPages && window.__amarkajPdfPages.length) {
-                content = window.__amarkajPdfPages.map((page, index) => {
-                    const widthPt = Number(page.width) || 595.28;
-                    const heightPt = Number(page.height) || 841.89;
-                    return `<div class="amarkaj-word-page" style="width:${widthPt}pt;height:${heightPt}pt;page-break-after:${index === window.__amarkajPdfPages.length - 1 ? 'auto' : 'always'};">
-                        <img src="${page.dataUrl}" alt="PDF page ${index + 1}" style="display:block;width:${widthPt}pt;height:${heightPt}pt;max-width:none;object-fit:fill;margin:0;padding:0;border:0;">
-                    </div>`;
-                }).join("");
-            } else {
-                content = preview.innerHTML;
-            }
-            const pageStyles = (currentTab === "pdfToWord" && window.__amarkajPdfPages && window.__amarkajPdfPages.length)
-                ? window.__amarkajPdfPages.map((page, index) =>
-                    `@page page${index + 1} { size:${(Number(page.width) || 595.28)}pt ${(Number(page.height) || 841.89)}pt; margin:0; }`
-                  ).join("\n")
-                : "@page { size:21cm 29.7cm; margin:0; }";
-            const header = `<!DOCTYPE html><html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
-            <head><meta charset="utf-8"><title>Document</title><style>
-            ${pageStyles}
-            html,body { margin:0 !important; padding:0 !important; font-family:Arial,'Nirmala UI',sans-serif; color:#111; }
-            .amarkaj-word-page { margin:0 !important; padding:0 !important; overflow:hidden; }
-            table { border-collapse:collapse; max-width:100%; }
-            td,th { border:1px solid #999; padding:5px; vertical-align:top; }
-            img { display:block; border:0; }
-            </style></head><body>${content}</body></html>`;
-            const blob = new Blob(["\ufeff", header], { type: "application/msword" });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = (currentFileName || "document") + ".doc";
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            setTimeout(() => URL.revokeObjectURL(url), 1500);
-            showToast("Word-compatible ফাইল ডাউনলোড শুরু হয়েছে।");
-        }
+<!-- ==================== 5. ADMIN PANEL ==================== -->
+<section id="admin" class="view hidden-view">
+  <h1 class="text-2xl font-extrabold">Admin Control Panel</h1>
+  <p class="text-sm text-slate-500 mb-5">অর্ডার ও পেমেন্ট ব্যবস্থাপনা।</p>
+  <div class="glass-card p-5 mb-5">
+    <h2 class="font-bold mb-3">Admin Verification Login</h2>
+    <div class="grid sm:grid-cols-3 gap-2.5">
+      <input id="aEmail" class="input" type="email" placeholder="Admin email">
+      <input id="aPass" class="input" type="password" placeholder="Password">
+      <button class="btn primary" onclick="adminLogin()">Admin প্রবেশ</button>
+    </div>
+    <p id="aMsg" class="text-xs text-slate-500 mt-2">Firebase Admin custom claim (admin=true) আবশ্যক।</p>
+  </div>
+  <div id="adminArea" class="hidden-view">
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+      <div class="stat-card"><small class="text-slate-500">মোট অর্ডার</small><b id="sOrders" class="block text-2xl mt-1">0</b></div>
+      <div class="stat-card"><small class="text-slate-500">Pending</small><b id="sPending" class="block text-2xl text-amber-600 mt-1">0</b></div>
+      <div class="stat-card"><small class="text-slate-500">Paid</small><b id="sPaid" class="block text-2xl text-emerald-600 mt-1">0</b></div>
+      <div class="stat-card"><small class="text-slate-500">মোট আয়</small><b id="sRevenue" class="block text-2xl text-blue-600 mt-1">৳০</b></div>
+    </div>
+    <div class="glass-card p-5 mb-5"><h2 class="font-bold mb-3">Payment Verification Queue</h2><div id="paymentQueue"></div></div>
+    <div class="glass-card p-5"><h2 class="font-bold mb-3">সকল অর্ডার তালিকা</h2><div id="allOrders"></div></div>
+  </div>
+</section>
 
-        // Copy Text
-        function copyExtractedText() {
-            const preview = document.getElementById('outputPreview');
-            const text = preview.innerText || preview.textContent || "";
+<!-- ==================== 6. FIREBASE SETTINGS ==================== -->
+<section id="settings" class="view hidden-view">
+  <div class="glass-card max-w-3xl mx-auto p-6 sm:p-8">
+    <h1 class="text-2xl font-extrabold">Firebase Cloud Configuration</h1>
+    <p class="text-sm text-slate-500 mb-5">আপনার Firebase প্রজেক্টের Web Config এখানে যুক্ত করুন।</p>
+    <div class="grid sm:grid-cols-2 gap-3.5">
+      <label class="text-xs font-bold">API Key<input id="fbApiKey" class="input mt-1" placeholder="AIza..."></label>
+      <label class="text-xs font-bold">Auth Domain<input id="fbAuthDomain" class="input mt-1" placeholder="project.firebaseapp.com"></label>
+      <label class="text-xs font-bold">Project ID<input id="fbProjectId" class="input mt-1"></label>
+      <label class="text-xs font-bold">Storage Bucket<input id="fbBucket" class="input mt-1"></label>
+      <label class="text-xs font-bold">Sender ID<input id="fbSender" class="input mt-1"></label>
+      <label class="text-xs font-bold">App ID<input id="fbAppId" class="input mt-1"></label>
+    </div>
+    <div class="flex gap-2.5 mt-5">
+      <button class="btn primary" onclick="saveFirebase()">Save & Connect</button>
+      <button class="btn soft" onclick="testFirebase()">Test Connection</button>
+    </div>
+    <p id="fbStatus" class="text-xs font-bold text-slate-600 mt-3">Firebase সংযুক্ত নয় (বর্তমানে Local Storage সক্রিয়)।</p>
+  </div>
+</section>
 
-            if (!text.trim()) {
-                showToast("কপি করার মতো টেক্সট নেই!", "error");
-                return;
-            }
+<!-- ==================== 7. WORD <-> PDF CONVERTER VIEW ==================== -->
+<section id="converter" class="view hidden-view">
+  <div class="flex justify-between items-center mb-3 bg-white p-4 rounded-2xl border">
+    <div>
+      <h1 class="text-xl font-extrabold text-slate-900"><i class="fa-solid fa-file-pdf text-red-500 mr-2"></i>Amarkaj Pro Word ↔ PDF Converter</h1>
+      <p class="text-xs text-slate-500">Layout-Preserving Client-Side Conversion Engine</p>
+    </div>
+    <button class="btn soft" onclick="go('home', $('nav-home'))"><i class="fa-solid fa-arrow-left"></i> হোম পেজ</button>
+  </div>
+  <iframe id="legacyFrame" title="Amarkaj PDF Word Converter"></iframe>
+</section>
 
-            navigator.clipboard.writeText(text).then(() => {
-                showToast("টেক্সট ক্লিপবোর্ডে কপি করা হয়েছে!");
-            }).catch(() => {
-                showToast("কপি করা সম্ভব হয়নি!", "error");
-            });
-        }
-    </script>
-</body>
-</html>
+<!-- Footer -->
+<footer class="bg-slate-950 text-slate-400 text-center text-xs py-8 px-4 mt-12 border-t border-slate-800">
+  <b class="text-white text-sm">AMARKAJ AI PROFESSIONAL v6</b>
+  <p class="mt-1">All-in-One Free Digital Document, Photo & Office Studio • 100% Client-Side Privacy</p>
+  <p class="mt-2 text-slate-500">© 2026 Amarkaj AI • All Rights Reserved</p>
+</footer>
+
+<script>
+// ==================== MASTER TOOLS REGISTRY (24 TOOLS) ====================
+const ALL_TOOLS = [
+  { id: 'photo', title: 'Passport Photo & Enhancer', bn: 'পাসপোর্ট ছবি ও কালার এডিট', cat: 'photo', icon: 'fa-camera', color: 'text-blue-600 bg-blue-50', action: () => launchTool('photo') },
+  { id: 'photostudio', title: 'A4 Passport Photo Sheet', bn: 'এক পেজে অনেক পাসপোর্ট ছবি', cat: 'photo', icon: 'fa-table-cells', color: 'text-indigo-600 bg-indigo-50', action: () => launchTool('photostudio') },
+  { id: 'converter', title: 'Word ↔ PDF Converter', bn: 'DOCX ও PDF ফাইল কনভার্ট', cat: 'pdf', icon: 'fa-file-word', color: 'text-red-600 bg-red-50', action: () => go('converter') },
+  { id: 'nidjoin', title: 'NID Front + Back Joiner', bn: 'ভোটার আইডি কার্ড এক পেজে', cat: 'photo', icon: 'fa-id-card', color: 'text-emerald-600 bg-emerald-50', action: () => launchTool('nidjoin') },
+  { id: 'teletalk', title: 'Teletalk Photo & Sign', bn: 'চাকরির আবেদনের ৩০০×৩০০ ছবি', cat: 'photo', icon: 'fa-user-check', color: 'text-cyan-600 bg-cyan-50', action: () => launchTool('teletalk') },
+  { id: 'scan', title: 'A4 Document Scanner', bn: 'মোবাইলে তোলা ছবি পরিষ্কার স্ক্যান', cat: 'pdf', icon: 'fa-print', color: 'text-violet-600 bg-violet-50', action: () => launchTool('scan') },
+  { id: 'cv', title: 'AI CV / Resume Maker', bn: 'প্রফেশনাল বায়োডাটা ও সিভি', cat: 'office', icon: 'fa-id-badge', color: 'text-blue-700 bg-blue-50', action: () => launchTool('cv') },
+  { id: 'job', title: 'চাকরির আবেদনপত্র', bn: 'বাংলায় চাকরির দরখাস্ত তৈরি', cat: 'office', icon: 'fa-envelope-open-text', color: 'text-teal-600 bg-teal-50', action: () => launchTool('job') },
+  { id: 'ocr', title: 'Bangla & English OCR', bn: 'ছবি থেকে লেখা কপি করুন', cat: 'utility', icon: 'fa-eye', color: 'text-amber-600 bg-amber-50', action: () => launchTool('ocr') },
+  { id: 'translate', title: 'EN ↔ BN Translator', bn: 'ইংরেজি ও বাংলা অনুবাদক', cat: 'utility', icon: 'fa-language', color: 'text-purple-600 bg-purple-50', action: () => launchTool('translate') },
+  { id: 'compress', title: 'Image KB Limiter', bn: 'ছবির সাইজ (KB) কমানো', cat: 'photo', icon: 'fa-file-zipper', color: 'text-rose-600 bg-rose-50', action: () => launchTool('compress') },
+  { id: 'bulk', title: 'Images to Single PDF', bn: 'অনেক ছবি মিলে একটি PDF', cat: 'pdf', icon: 'fa-layer-group', color: 'text-orange-600 bg-orange-50', action: () => launchTool('bulk') },
+  { id: 'pdfimage', title: 'PDF to HD Images', bn: 'PDF থেকে হাই-রেজোলিউশন ছবি', cat: 'pdf', icon: 'fa-file-image', color: 'text-pink-600 bg-pink-50', action: () => launchTool('pdfimage') },
+  { id: 'idcrop', title: 'ID Card to PDF', bn: 'আইডি কার্ড থেকে A4 PDF', cat: 'pdf', icon: 'fa-address-card', color: 'text-sky-600 bg-sky-50', action: () => launchTool('idcrop') },
+  { id: 'passcrop', title: 'Passport Page to PDF', bn: 'পাসপোর্ট কপি A4/A5 PDF', cat: 'pdf', icon: 'fa-passport', color: 'text-indigo-700 bg-indigo-50', action: () => launchTool('passcrop') },
+  { id: 'doc', title: 'Document Editor', bn: 'অনলাইন ওয়ার্ড ডকুমেন্ট এডিটর', cat: 'office', icon: 'fa-file-lines', color: 'text-slate-700 bg-slate-100', action: () => launchTool('doc') },
+  { id: 'stamp', title: 'Stamp / Deed Writer', bn: 'দলিল, চুক্তিপত্র ও অঙ্গীকারনামা', cat: 'office', icon: 'fa-stamp', color: 'text-amber-700 bg-amber-50', action: () => launchTool('stamp') },
+  { id: 'invoice', title: 'Cash Memo / Invoice', bn: 'দোকানের ক্যাশ মেমো ও বিল তৈরি', cat: 'office', icon: 'fa-file-invoice-dollar', color: 'text-emerald-700 bg-emerald-50', action: () => launchTool('invoice') },
+  { id: 'excel', title: 'Excel / CSV Builder', bn: 'টেবিল ও এক্সেল শিট তৈরি', cat: 'office', icon: 'fa-file-excel', color: 'text-green-700 bg-green-50', action: () => launchTool('excel') },
+  { id: 'signature', title: 'Digital Signature Pad', bn: 'ডিজিটাল স্বাক্ষর (PNG)', cat: 'utility', icon: 'fa-signature', color: 'text-blue-800 bg-blue-50', action: () => launchTool('signature') },
+  { id: 'barcode', title: 'Barcode Generator', bn: 'পণ্যের বারকোড তৈরি', cat: 'utility', icon: 'fa-barcode', color: 'text-zinc-800 bg-zinc-100', action: () => launchTool('barcode') },
+  { id: 'convert', title: 'Unit & Date Converter', bn: 'উচ্চতা, ওজন, বাংলা ও হিজরি তারিখ', cat: 'utility', icon: 'fa-calculator', color: 'text-cyan-700 bg-cyan-50', action: () => launchTool('convert') },
+  { id: 'travel', title: 'e-Passport & NID Links', bn: 'সরকারি পোর্টাল ও ভিসা লিংক', cat: 'utility', icon: 'fa-plane-departure', color: 'text-sky-700 bg-sky-50', action: () => launchTool('travel') },
+  { id: 'printorder', title: 'Online Print Order', bn: 'অনলাইনে প্রিন্ট অর্ডার জমা', cat: 'office', icon: 'fa-paper-plane', color: 'text-blue-600 bg-blue-50', action: () => go('services', $('nav-services')) }
+];
+
+const $ = id => document.getElementById(id);
+const money = n => '৳' + Number(n || 0).toLocaleString('en-US');
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+let currentCategory = 'all';
+let activeToolId = 'photo';
+
+function notify(msg) {
+  $('toastMsg').textContent = msg;
+  const t = $('globalToast');
+  t.classList.add('show');
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(() => t.classList.remove('show'), 3200);
+}
+
+// Navigation Controller
+function go(id, btn) {
+  ['home', 'services', 'tools', 'customer', 'admin', 'settings', 'converter'].forEach(x => {
+    $(x).classList.toggle('hidden-view', x !== id);
+  });
+  document.querySelectorAll('.navbtn').forEach(x => x.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  else if ($('nav-' + id)) $('nav-' + id).classList.add('active');
+
+  if (id === 'customer') loadMyOrders();
+  if (id === 'admin' && admin) renderAdmin();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// Launch Any Tool into the Tools Window
+function launchTool(toolId) {
+  if (toolId === 'converter') { go('converter'); return; }
+  if (toolId === 'printorder') { go('services', $('nav-services')); return; }
+
+  activeToolId = toolId;
+  go('tools', $('nav-tools'));
+
+  // Hide all tool panels
+  document.querySelectorAll('#activeToolWindow > div').forEach(el => el.classList.add('hidden'));
+  const target = $(toolId + 'Tool');
+  if (target) {
+    target.classList.remove('hidden');
+    setTimeout(() => target.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 80);
+  }
+  if (toolId === 'signature') initSignature();
+  renderWorkspaceTools();
+}
+
+// Render Home Page All Tools Grid
+function renderHomeTools(filterText = '') {
+  const q = filterText.toLowerCase().trim();
+  const list = ALL_TOOLS.filter(t => !q || t.title.toLowerCase().includes(q) || t.bn.includes(q));
+  $('homeAllToolsGrid').innerHTML = list.map(t => `
+    <button class="tool-tile group" onclick="ALL_TOOLS.find(x=>x.id==='${t.id}').action()">
+      <div>
+        <div class="flex items-center justify-between mb-3">
+          <span class="w-11 h-11 rounded-xl ${t.color} grid place-items-center text-lg group-hover:scale-110 transition">
+            <i class="fa-solid ${t.icon}"></i>
+          </span>
+          <span class="free-badge">FREE</span>
+        </div>
+        <b class="block text-slate-900 text-base group-hover:text-blue-600 transition">${t.title}</b>
+        <small class="block text-slate-500 mt-1 text-xs">${t.bn}</small>
+      </div>
+      <div class="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-blue-600">
+        <span>ওপেন করুন</span>
+        <i class="fa-solid fa-arrow-right group-hover:translate-x-1 transition"></i>
+      </div>
+    </button>
+  `).join('');
+}
+
+function filterHomeTools() {
+  renderHomeTools($('homeSearch').value);
+}
+
+// Render Workspace Tools Window Grid
+function renderWorkspaceTools() {
+  const q = ($('workspaceSearch')?.value || '').toLowerCase().trim();
+  const list = ALL_TOOLS.filter(t => {
+    const matchCat = currentCategory === 'all' || t.cat === currentCategory;
+    const matchQ = !q || t.title.toLowerCase().includes(q) || t.bn.includes(q);
+    return matchCat && matchQ;
+  });
+
+  $('workspaceToolsGrid').innerHTML = list.map(t => `
+    <button class="tool-tile p-3 ${activeToolId === t.id ? 'active-tool' : ''}" onclick="ALL_TOOLS.find(x=>x.id==='${t.id}').action()">
+      <div class="flex items-center gap-2.5">
+        <span class="w-8 h-8 rounded-lg ${t.color} grid place-items-center text-sm shrink-0">
+          <i class="fa-solid ${t.icon}"></i>
+        </span>
+        <div class="overflow-hidden">
+          <b class="block text-xs text-slate-900 truncate">${t.title}</b>
+          <small class="block text-[11px] text-slate-500 truncate">${t.bn}</small>
+        </div>
+      </div>
+    </button>
+  `).join('');
+}
+
+function setCategory(cat, btn) {
+  currentCategory = cat;
+  document.querySelectorAll('#catTabs button').forEach(b => {
+    b.classList.remove('primary');
+    b.classList.add('soft');
+  });
+  btn.classList.remove('soft');
+  btn.classList.add('primary');
+  renderWorkspaceTools();
+}
+
+function filterWorkspaceTools() {
+  renderWorkspaceTools();
+}
+
+// ==================== CORE HELPER FUNCTIONS ====================
+function loadImage(file) {
+  return new Promise((res, rej) => {
+    let u = URL.createObjectURL(file), im = new Image();
+    im.onload = () => { URL.revokeObjectURL(u); res(im); };
+    im.onerror = rej;
+    im.src = u;
+  });
+}
+
+function drawImageContain(ctx, im, x, y, w, h) {
+  let r = Math.min(w / im.width, h / im.height), dw = im.width * r, dh = im.height * r;
+  ctx.drawImage(im, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh);
+}
+
+function downloadCanvas(id, name) {
+  let c = $(id);
+  if (!c?.width) return notify('আগে ছবি তৈরি করুন');
+  let a = document.createElement('a');
+  a.href = c.toDataURL('image/png');
+  a.download = name;
+  a.click();
+  notify('ডাউনলোড সম্পন্ন হয়েছে');
+}
+
+function canvasPdf(id, name) {
+  let c = $(id);
+  if (!c?.width) return notify('আগে ছবি তৈরি করুন');
+  if (!window.jspdf) return notify('PDF library লোড হয়নি');
+  let { jsPDF } = window.jspdf;
+  let d = new jsPDF('p', 'mm', 'a4');
+  let r = Math.min(190 / c.width, 277 / c.height), w = c.width * r, h = c.height * r;
+  d.addImage(c.toDataURL('image/jpeg', 0.95), 'JPEG', (210 - w) / 2, (297 - h) / 2, w, h);
+  d.save(name);
+  notify('PDF ডাউনলোড হয়েছে');
+}
+
+function printCanvas(id) {
+  let c = $(id);
+  if (!c?.width) return notify('আগে ছবি তৈরি করুন');
+  let w = window.open('', '_blank');
+  if (!w) return notify('ব্রাউজারে Pop-up allow করুন');
+  w.document.write(`<html><head><style>@page{size:A4;margin:8mm}body{text-align:center;margin:0}img{max-width:100%;max-height:280mm}</style></head><body><img src="${c.toDataURL('image/png')}"><script>onload=()=>print()<\/script></body></html>`);
+  w.document.close();
+}
+
+function printArea(id) {
+  let h = $(id)?.innerHTML || '';
+  if (!h.trim()) return notify('আগে Preview তৈরি করুন');
+  let w = window.open('', '_blank');
+  if (!w) return notify('ব্রাউজারে Pop-up allow করুন');
+  w.document.write(`<html><head><style>@page{size:A4;margin:14mm}body{font-family:'Hind Siliguri',Arial,sans-serif;padding:10px;line-height:1.7}table{border-collapse:collapse;width:100%}td,th{border:1px solid #64748b;padding:8px;text-align:left}</style></head><body>${h}<script>onload=()=>print()<\/script></body></html>`);
+  w.document.close();
+}
+
+function downloadArea(id, name) {
+  let h = $(id)?.innerHTML || '';
+  if (!h.trim()) return notify('আগে Preview তৈরি করুন');
+  let b = new Blob([`<!doctype html><meta charset="utf-8"><style>body{font-family:Arial,sans-serif;padding:24px;line-height:1.7}table{border-collapse:collapse;width:100%}td,th{border:1px solid #888;padding:8px}</style>${h}`], { type: 'text/html' });
+  let a = document.createElement('a');
+  a.href = URL.createObjectURL(b);
+  a.download = name;
+  a.click();
+}
+
+function copyText(id) {
+  let el = $(id);
+  if (!el || !el.value) return notify('কপি করার মতো কোনো লেখা নেই');
+  el.select();
+  navigator.clipboard.writeText(el.value).then(() => notify('টেক্সট কপি হয়েছে!')).catch(() => {
+    document.execCommand('copy');
+    notify('টেক্সট কপি হয়েছে!');
+  });
+}
+
+// ==================== INDIVIDUAL TOOL LOGIC ====================
+// 1. Passport Photo & Enhancer
+let photoImage = null, photoName = 'passport-photo';
+$('photoInput')?.addEventListener('change', e => {
+  let f = e.target.files?.[0];
+  if (!f) return;
+  photoName = f.name.replace(/\.[^.]+$/, '');
+  let u = URL.createObjectURL(f), im = new Image();
+  im.onload = () => { photoImage = im; renderPhoto(); URL.revokeObjectURL(u); };
+  im.src = u;
+});
+
+['photoBright', 'photoContrast', 'photoSaturation', 'photoBlur', 'photoBg', 'photoSize'].forEach(id => {
+  $(id)?.addEventListener('input', () => {
+    if ($('valBright')) $('valBright').textContent = $('photoBright').value;
+    if ($('valContrast')) $('valContrast').textContent = $('photoContrast').value;
+    if ($('valSat')) $('valSat').textContent = $('photoSaturation').value;
+    if ($('valBlur')) $('valBlur').textContent = $('photoBlur').value;
+    renderPhoto();
+  });
+});
+
+function renderPhoto() {
+  if (!photoImage) return;
+  let c = $('photoCanvas'), ctx = c.getContext('2d'), v = $('photoSize').value;
+  let d = v === '50x50' ? [590, 590] : v === '45x55' ? [531, 649] : v === '55x45' ? [649, 531] : [413, 531];
+  c.width = d[0]; c.height = d[1];
+  ctx.fillStyle = $('photoBg').value;
+  ctx.fillRect(0, 0, c.width, c.height);
+  let sc = Math.max(c.width / photoImage.width, c.height / photoImage.height);
+  let w = photoImage.width * sc, h = photoImage.height * sc;
+  ctx.filter = `brightness(${$('photoBright').value}%) contrast(${$('photoContrast').value}%) saturate(${$('photoSaturation').value}%) blur(${$('photoBlur').value}px)`;
+  ctx.drawImage(photoImage, (c.width - w) / 2, (c.height - h) / 2, w, h);
+  ctx.filter = 'none';
+  $('photoHint').textContent = `প্রস্তুত: ${v.replace('x', ' × ')} mm • 300 DPI`;
+}
+
+function resetPhoto() {
+  ['photoBright', 'photoContrast', 'photoSaturation'].forEach(id => $(id).value = 100);
+  $('photoBlur').value = 0;
+  $('photoBg').value = '#ffffff';
+  $('valBright').textContent = '100'; $('valContrast').textContent = '100'; $('valSat').textContent = '100'; $('valBlur').textContent = '0';
+  renderPhoto();
+}
+
+function downloadPhoto() {
+  if (!photoImage) return notify('আগে ছবি নির্বাচন করুন');
+  let a = document.createElement('a');
+  a.href = $('photoCanvas').toDataURL('image/jpeg', 0.95);
+  a.download = photoName + '-passport.jpg';
+  a.click();
+}
+
+function downloadPhotoA4() {
+  if (!photoImage) return notify('আগে ছবি নির্বাচন করুন');
+  let c = document.createElement('canvas');
+  c.width = 2480; c.height = 3508;
+  let x = c.getContext('2d'), p = $('photoCanvas'), gap = 24, m = 80;
+  x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height);
+  let cols = Math.max(1, Math.floor((c.width - 2 * m) / (p.width + gap)));
+  let rows = Math.max(1, Math.floor((c.height - 2 * m) / (p.height + gap)));
+  for (let r = 0; r < rows; r++) {
+    for (let k = 0; k < cols; k++) {
+      let xx = m + k * (p.width + gap), yy = m + r * (p.height + gap);
+      if (xx + p.width < c.width - m && yy + p.height < c.height - m) {
+        x.drawImage(p, xx, yy);
+        x.strokeStyle = '#cbd5e1'; x.lineWidth = 3; x.strokeRect(xx, yy, p.width, p.height);
+      }
+    }
+  }
+  let a = document.createElement('a');
+  a.href = c.toDataURL('image/jpeg', 0.94);
+  a.download = photoName + '-A4-sheet.jpg';
+  a.click();
+  notify('A4 ফটো শিট ডাউনলোড হয়েছে');
+}
+
+// 2. Studio Multi-Copy Sheet
+async function makeStudioSheet() {
+  let f = $('studioFile').files[0];
+  if (!f) return notify('আগে ছবি নির্বাচন করুন');
+  let im = await loadImage(f), c = $('studioCanvas'), ctx = c.getContext('2d');
+  let w = +$('studioW').value || 35, h = +$('studioH').value || 45;
+  let n = Math.min(100, Math.max(1, +$('studioCount').value || 1)), gap = +$('studioGap').value || 0;
+  let ppm = 11.81, pw = w * ppm, ph = h * ppm, g = gap * ppm;
+  c.width = 2480; c.height = 3508;
+  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+  let cols = Math.max(1, Math.floor((c.width - 120 + g) / (pw + g)));
+  let rows = Math.max(1, Math.floor((c.height - 120 + g) / (ph + g)));
+  n = Math.min(n, cols * rows);
+  let sx = (c.width - (cols * pw + (cols - 1) * g)) / 2;
+  for (let i = 0; i < n; i++) {
+    let x = sx + (i % cols) * (pw + g), y = 60 + Math.floor(i / cols) * (ph + g);
+    ctx.fillStyle = $('studioBg').value;
+    ctx.fillRect(x, y, pw, ph);
+    drawImageContain(ctx, im, x, y, pw, ph);
+    ctx.strokeStyle = '#cbd5e1'; ctx.lineWidth = 2; ctx.strokeRect(x, y, pw, ph);
+  }
+  notify(`A4 শিটে ${n}টি কপি সাজানো হয়েছে`);
+}
+$('studioSize')?.addEventListener('change', e => {
+  if (e.target.value !== 'custom') {
+    let [w, h] = e.target.value.split('x');
+    $('studioW').value = w; $('studioH').value = h;
+  }
+});
+
+// 3. NID Joiner
+async function makeNidJoin(autoPdf = true) {
+  let f = $('nidFront').files[0], b = $('nidBack').files[0];
+  if (!f || !b) return notify('NID-এর সামনের ও পিছনের উভয় ছবি দিন');
+  let [a, z] = await Promise.all([loadImage(f), loadImage(b)]);
+  let c = $('nidCanvas'), ctx = c.getContext('2d'), v = $('nidLayout').value === 'vertical';
+  c.width = v ? 1600 : 2200; c.height = v ? 2200 : 1600;
+  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+  let p = 80, g = 60;
+  if (v) {
+    let h = (c.height - 2 * p - g) / 2;
+    drawImageContain(ctx, a, p, p, c.width - 2 * p, h);
+    drawImageContain(ctx, z, p, p + h + g, c.width - 2 * p, h);
+  } else {
+    let w = (c.width - 2 * p - g) / 2;
+    drawImageContain(ctx, a, p, p, w, c.height - 2 * p);
+    drawImageContain(ctx, z, p + w + g, p, w, c.height - 2 * p);
+  }
+  if (autoPdf) canvasPdf('nidCanvas', 'nid-front-back.pdf');
+  else notify('NID প্রিভিউ প্রস্তুত হয়েছে');
+}
+
+// 4 & 5. ID & Passport Crop to PDF
+async function drawCrop(type) {
+  let f = $(type === 'id' ? 'idFile' : 'passFile').files[0];
+  if (!f) return;
+  let im = await loadImage(f), c = $(type === 'id' ? 'idCanvas' : 'passCanvas');
+  c.width = im.width; c.height = im.height;
+  c.getContext('2d').drawImage(im, 0, 0);
+}
+['idFile', 'passFile'].forEach(id => document.addEventListener('change', e => {
+  if (e.target.id === id) drawCrop(id === 'idFile' ? 'id' : 'pass');
+}));
+
+function cropToPdf(type) {
+  let c = $(type === 'id' ? 'idCanvas' : 'passCanvas');
+  if (!c.width) return notify('প্রথমে ছবি নির্বাচন করুন');
+  let { jsPDF } = window.jspdf;
+  let fmt = type === 'pass' && $('passFormat').value === 'a5' ? 'a5' : 'a4';
+  let d = new jsPDF('p', 'mm', fmt), pw = fmt === 'a5' ? 148 : 210, ph = fmt === 'a5' ? 210 : 297;
+  let r = Math.min((pw - 20) / c.width, (ph - 20) / c.height), w = c.width * r, h = c.height * r;
+  d.addImage(c.toDataURL('image/jpeg', 0.95), 'JPEG', (pw - w) / 2, (ph - h) / 2, w, h);
+  d.save(type === 'id' ? 'id-card.pdf' : 'passport-copy.pdf');
+}
+
+// 6. Document Scan
+async function renderScan() {
+  let f = $('scanFile').files[0];
+  if (!f) return;
+  let im = await loadImage(f), c = $('scanCanvas'), ctx = c.getContext('2d');
+  c.width = 1654; c.height = 2339;
+  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+  drawImageContain(ctx, im, 30, 30, c.width - 60, c.height - 60);
+  let d = ctx.getImageData(0, 0, c.width, c.height);
+  let b = +$('scanBright').value / 100, k = +$('scanContrast').value / 100, g = $('scanGray').checked;
+  for (let i = 0; i < d.data.length; i += 4) {
+    for (let j = 0; j < 3; j++) d.data[i + j] = Math.max(0, Math.min(255, ((d.data[i + j] * b - 128) * k) + 128));
+    if (g) {
+      let y = 0.299 * d.data[i] + 0.587 * d.data[i + 1] + 0.114 * d.data[i + 2];
+      d.data[i] = d.data[i + 1] = d.data[i + 2] = y;
+    }
+  }
+  ctx.putImageData(d, 0, 0);
+}
+$('scanFile')?.addEventListener('change', renderScan);
+
+// 7. Teletalk Resizer
+async function resizeTeletalk() {
+  let f = $('teleFile').files[0];
+  if (!f) return notify('ছবি বা স্বাক্ষর নির্বাচন করুন');
+  let [w, h] = $('teleType').value.split('x').map(Number), im = await loadImage(f);
+  let c = document.createElement('canvas'); c.width = w; c.height = h;
+  let ctx = c.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, w, h);
+  ctx.drawImage(im, 0, 0, w, h);
+  let max = (+$('teleKb').value || 100) * 1024, q = 0.92, b;
+  for (let i = 0; i < 16; i++) {
+    b = await new Promise(r => c.toBlob(r, 'image/jpeg', q));
+    if (b.size <= max) break;
+    q -= 0.05;
+  }
+  let a = document.createElement('a');
+  a.href = URL.createObjectURL(b);
+  a.download = `teletalk-${w}x${h}.jpg`;
+  a.click();
+  $('teleStatus').textContent = `সফল! সাইজ: ${w}×${h}px, ফাইল: ${(b.size / 1024).toFixed(1)} KB`;
+}
+
+// 8. Image Compressor
+async function compressImage() {
+  let f = $('compressFile').files[0];
+  if (!f) return notify('ছবি নির্বাচন করুন');
+  let im = await loadImage(f), type = $('compressFormat').value, target = (+$('targetKb').value || 100) * 1024;
+  let c = document.createElement('canvas'), ctx = c.getContext('2d');
+  let sc = Math.min(1, 1800 / Math.max(im.width, im.height));
+  c.width = im.width * sc; c.height = im.height * sc;
+  ctx.drawImage(im, 0, 0, c.width, c.height);
+  let q = 0.9, b;
+  for (let i = 0; i < 18; i++) {
+    b = await new Promise(r => c.toBlob(r, type, q));
+    if (b.size <= target) break;
+    q -= 0.05;
+    if (q < 0.15) {
+      c.width *= 0.85; c.height *= 0.85;
+      ctx.drawImage(im, 0, 0, c.width, c.height);
+      q = 0.75;
+    }
+  }
+  let a = document.createElement('a');
+  a.href = URL.createObjectURL(b);
+  a.download = 'compressed.' + (type === 'image/webp' ? 'webp' : 'jpg');
+  a.click();
+  $('compressStatus').textContent = `কম্প্রেস সম্পন্ন: ${(b.size / 1024).toFixed(1)} KB`;
+}
+
+// 9. Bulk Images
+async function bulkConvert() {
+  let fs = [...$('bulkFiles').files];
+  if (!fs.length) return notify('একাধিক ছবি নির্বাচন করুন');
+  for (let f of fs) {
+    let im = await loadImage(f), c = document.createElement('canvas');
+    c.width = im.width; c.height = im.height; c.getContext('2d').drawImage(im, 0, 0);
+    let a = document.createElement('a');
+    a.href = c.toDataURL('image/jpeg', 0.92);
+    a.download = f.name.replace(/\.[^.]+$/, '') + '.jpg';
+    a.click();
+    await new Promise(r => setTimeout(r, 200));
+  }
+  $('bulkStatus').textContent = `${fs.length}টি ছবি JPG হিসেবে ডাউনলোড হয়েছে`;
+}
+
+async function bulkToPdf() {
+  let fs = [...$('bulkFiles').files];
+  if (!fs.length) return notify('ছবি নির্বাচন করুন');
+  let { jsPDF } = window.jspdf, d = new jsPDF('p', 'mm', 'a4');
+  for (let i = 0; i < fs.length; i++) {
+    let im = await loadImage(fs[i]);
+    if (i) d.addPage();
+    let r = Math.min(190 / im.width, 277 / im.height), w = im.width * r, h = im.height * r;
+    let c = document.createElement('canvas'); c.width = im.width; c.height = im.height;
+    c.getContext('2d').drawImage(im, 0, 0);
+    d.addImage(c.toDataURL('image/jpeg', 0.92), 'JPEG', (210 - w) / 2, (297 - h) / 2, w, h);
+  }
+  d.save('combined-images.pdf');
+  $('bulkStatus').textContent = `${fs.length}টি ছবি দিয়ে PDF তৈরি হয়েছে`;
+}
+
+// 10. PDF to HD Images
+async function pdfToImages() {
+  let f = $('pdfImageFile').files[0];
+  if (!f) return notify('PDF ফাইল নির্বাচন করুন');
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  let pdf = await pdfjsLib.getDocument({ data: await f.arrayBuffer() }).promise;
+  let s = Math.min(5, Math.max(1, +$('pdfScale').value || 2));
+  for (let n = 1; n <= pdf.numPages; n++) {
+    let p = await pdf.getPage(n), v = p.getViewport({ scale: s });
+    let c = document.createElement('canvas'); c.width = v.width; c.height = v.height;
+    await p.render({ canvasContext: c.getContext('2d'), viewport: v }).promise;
+    let a = document.createElement('a'); a.href = c.toDataURL('image/png'); a.download = `page-${n}.png`; a.click();
+    await new Promise(r => setTimeout(r, 200));
+  }
+  $('pdfImageStatus').textContent = `${pdf.numPages}টি পেজ HD PNG হিসেবে ডাউনলোড হয়েছে`;
+}
+
+// 11 & 12. CV & Job Application
+function exportHtml(body, name) {
+  let blob = new Blob([`<!doctype html><html><head><meta charset="utf-8"><title>${name}</title></head><body>${body}</body></html>`], { type: 'text/html' });
+  let a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click();
+}
+function printHtml(body) {
+  let w = window.open('', '_blank');
+  if (!w) return notify('Print করার জন্য Pop-up অনুমতি দিন');
+  w.document.write(`<html><head><meta charset="utf-8"><style>@page{size:A4;margin:15mm}body{font-family:'Hind Siliguri',Arial,sans-serif;line-height:1.7;color:#111}</style></head><body>${body}<script>onload=()=>print()<\/script></body></html>`);
+  w.document.close();
+}
+
+function cvBody() {
+  let g = id => $(id).value.trim();
+  return `<main style="font-family:Arial,sans-serif;max-width:800px;margin:auto;color:#1e293b;line-height:1.6">
+    <div style="border-bottom:3px solid #2563eb;padding-bottom:12px;margin-bottom:16px">
+      <h1 style="margin:0;color:#0f172a;font-size:28px">${esc(g('cvName') || 'YOUR NAME')}</h1>
+      <p style="margin:4px 0 0;color:#475569;font-size:14px">${esc(g('cvContact'))} • ${esc(g('cvAddress'))}</p>
+    </div>
+    ${[['CAREER OBJECTIVE', 'cvObjective'], ['EDUCATIONAL QUALIFICATION', 'cvEducation'], ['WORK EXPERIENCE', 'cvExperience'], ['SKILLS & COMPETENCIES', 'cvSkills'], ['LANGUAGES & PERSONAL DETAILS', 'cvLanguages']]
+      .filter(([, id]) => g(id))
+      .map(([t, id]) => `<h2 style="color:#1d4ed8;font-size:15px;border-bottom:1px solid #cbd5e1;padding-bottom:4px;margin-top:16px">${t}</h2><p style="white-space:pre-wrap;font-size:14px;margin-top:6px">${esc(g(id))}</p>`).join('')}
+  </main>`;
+}
+function previewCV() { $('cvPreview').innerHTML = cvBody(); }
+function downloadCV() { let b = cvBody(); $('cvPreview').innerHTML = b; exportHtml(b, 'Professional-CV.html'); }
+function printCV() { let b = cvBody(); $('cvPreview').innerHTML = b; printHtml(b); }
+
+function jobBody() {
+  let g = id => $(id).value.trim();
+  return `<div style="font-family:'Hind Siliguri',serif;line-height:1.9;font-size:15px">
+    <p style="text-align:right">তারিখ: ${new Date().toLocaleDateString('bn-BD')}</p>
+    <p>বরাবর,<br>নিয়োগকারী কর্তৃপক্ষ<br><b>${esc(g('jobCompany'))}</b></p>
+    <p style="margin:14px 0"><b>বিষয়: ${esc(g('jobPosition'))} পদে চাকরির জন্য আবেদন।</b></p>
+    <p>জনাব/জনাবা,</p>
+    <p style="text-align:justify">বিনীত নিবেদন এই যে, আমি নিম্নস্বাক্ষরকারী <b>${esc(g('jobName'))}</b>, আপনার স্বনামধন্য প্রতিষ্ঠানে <b>${esc(g('jobPosition'))}</b> পদে নিয়োগ লাভের জন্য একজন আগ্রহী প্রার্থী। আমার শিক্ষাগত যোগ্যতা ও অভিজ্ঞতার সংক্ষিপ্ত বিবরণ: ${esc(g('jobExtra'))}।</p>
+    <p>অতএব, মহোদয়ের নিকট বিনীত প্রার্থনা এই যে, আমার যোগ্যতা ও অভিজ্ঞতা বিবেচনা করে উক্ত পদে আমাকে নিয়োগ দান করে বাধিত করবেন।</p>
+    <p style="margin-top:28px">বিনীত নিবেদক,<br><b>${esc(g('jobName'))}</b><br>${esc(g('jobContact'))}</p>
+  </div>`;
+}
+function previewJob() { $('jobPreview').innerHTML = jobBody(); }
+function downloadJob() { let b = jobBody(); $('jobPreview').innerHTML = b; exportHtml(b, 'Job-Application.html'); }
+function printJob() { let b = jobBody(); $('jobPreview').innerHTML = b; printHtml(b); }
+
+// 13, 14, 15, 16. Doc, Stamp, Invoice, CSV
+function downloadDoc() { exportHtml($('editableDoc').innerHTML, 'Amarkaj-Document.html'); }
+function printDoc() { printHtml($('editableDoc').innerHTML); }
+
+function buildStamp() {
+  $('stampPreview').innerHTML = `<h2 style="text-align:center;font-size:22px;font-weight:bold;text-decoration:underline;margin-bottom:20px">${esc($('stampTitle').value || 'অঙ্গীকারনামা / চুক্তিপত্র')}</h2>
+  <div style="white-space:pre-wrap;line-height:2;text-align:justify;font-size:15px">${esc($('stampText').value)}</div>
+  <div style="display:flex;justify-content:space-between;margin-top:80px;font-weight:bold"><span>১ম পক্ষের স্বাক্ষর: ______________</span><span>২য় পক্ষের স্বাক্ষর: ______________</span></div>`;
+}
+
+function buildInvoice() {
+  let rows = [], sum = 0;
+  $('invItems').value.split(/\n/).filter(Boolean).forEach(s => {
+    let [n, q, p] = s.split(','); q = +q || 1; p = +p || 0; sum += q * p;
+    rows.push(`<tr><td>${esc(n)}</td><td>${q}</td><td>৳${p.toFixed(2)}</td><td>৳${(q * p).toFixed(2)}</td></tr>`);
+  });
+  $('invoicePreview').innerHTML = `<div style="border-bottom:2px solid #0f172a;padding-bottom:10px;margin-bottom:12px;display:flex;justify-content:space-between">
+    <div><h2 style="font-size:22px;font-weight:800;margin:0">${esc($('invShop').value || 'CASH MEMO')}</h2><small>Customer: ${esc($('invCustomer').value)} | Phone: ${esc($('invPhone').value)}</small></div>
+    <div style="text-align:right"><b>INVOICE</b><br><small>Date: ${esc($('invDate').value || new Date().toLocaleDateString())}</small></div>
+  </div>
+  <table><tr><th>বিবরণ (Item)</th><th>পরিমাণ</th><th>দর</th><th>মোট টাকা</th></tr>${rows.join('')}
+  <tr><th colspan="3" style="text-align:right">সর্বমোট (Grand Total)</th><th>৳${sum.toFixed(2)}</th></tr></table>
+  <div style="display:flex;justify-content:space-between;margin-top:55px;font-size:13px"><span>ক্রেতার স্বাক্ষর ____________</span><span>বিক্রেতার স্বাক্ষর ____________</span></div>`;
+}
+
+function renderCsvTable() {
+  let a = $('excelData').value.trim().split(/\r?\n/).map(x => x.split(','));
+  $('excelPreview').innerHTML = '<table class="data">' + a.map((r, i) => '<tr>' + r.map(v => i === 0 ? `<th>${esc(v)}</th>` : `<td>${esc(v)}</td>`).join('') + '</tr>').join('') + '</table>';
+}
+function downloadCsv() {
+  let b = new Blob(['\ufeff' + $('excelData').value], { type: 'text/csv;charset=utf-8' });
+  let a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'amarkaj-sheet.csv'; a.click();
+}
+
+// 17. OCR
+async function runOcr() {
+  let f = $('ocrFile').files[0];
+  if (!f) return notify('প্রথমে লেখার ছবি নির্বাচন করুন');
+  $('ocrStatus').textContent = 'AI OCR ইঞ্জিন ছবি পড়ছে, অনুগ্রহ করে অপেক্ষা করুন...';
+  try {
+    let r = await Tesseract.recognize(f, $('ocrLang').value, {
+      logger: m => { if (m.status) $('ocrStatus').textContent = `${m.status} (${Math.round((m.progress || 0) * 100)}%)`; }
+    });
+    $('ocrResult').value = r.data.text;
+    $('ocrStatus').textContent = 'টেক্সট এক্সট্রাক্ট সম্পন্ন হয়েছে!';
+  } catch (e) {
+    $('ocrStatus').textContent = 'Error: ' + e.message;
+  }
+}
+
+// 18. Translator
+async function translateText() {
+  let t = $('transInput').value.trim();
+  if (!t) return notify('অনুবাদ করার জন্য কিছু লিখুন');
+  let [a, b] = $('transDir').value.split('|');
+  $('transOutput').value = 'অনুবাদ হচ্ছে...';
+  try {
+    let r = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(t)}&langpair=${a}|${b}`);
+    let j = await r.json();
+    $('transOutput').value = j.responseData?.translatedText || 'অনুবাদ পাওয়া যায়নি';
+  } catch (e) {
+    $('transOutput').value = 'নেটওয়ার্ক ত্রুটি: ' + e.message;
+  }
+}
+
+// 19. Signature Pad
+let sigCtx = null, sigDown = false;
+function initSignature() {
+  let c = $('sigCanvas');
+  if (sigCtx) return;
+  sigCtx = c.getContext('2d');
+  sigCtx.strokeStyle = '#0f172a';
+  sigCtx.lineWidth = 4;
+  sigCtx.lineCap = 'round';
+  let pos = e => {
+    let r = c.getBoundingClientRect();
+    return { x: (e.clientX - r.left) * c.width / r.width, y: (e.clientY - r.top) * c.height / r.height };
+  };
+  c.addEventListener('pointerdown', e => { sigDown = true; let p = pos(e); sigCtx.beginPath(); sigCtx.moveTo(p.x, p.y); e.preventDefault(); });
+  c.addEventListener('pointermove', e => { if (!sigDown) return; let p = pos(e); sigCtx.lineTo(p.x, p.y); sigCtx.stroke(); e.preventDefault(); });
+  window.addEventListener('pointerup', () => sigDown = false);
+}
+function clearSignature() {
+  let c = $('sigCanvas');
+  c.getContext('2d').clearRect(0, 0, c.width, c.height);
+}
+
+// 20. Barcode
+function makeBarcode() {
+  let val = $('barcodeText').value.trim();
+  if (!val) return notify('বারকোডের জন্য মান লিখুন');
+  try {
+    JsBarcode('#barcodeSvg', val, { format: $('barcodeFormat').value, displayValue: true, margin: 12 });
+  } catch (e) { notify('ভুল ফরম্যাট: ' + e.message); }
+}
+function downloadSvg() {
+  let b = new Blob([new XMLSerializer().serializeToString($('barcodeSvg'))], { type: 'image/svg+xml' });
+  let a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'barcode.svg'; a.click();
+}
+
+// 21. Unit & Date Converter
+function convertUnits() {
+  let h = +$('heightCm').value, w = +$('weightKg').value, d = $('gregDate').value, res = [];
+  if (h) res.push(`উচ্চতা: ${(h / 30.48).toFixed(2)} ফুট (${Math.floor(h / 30.48)}' ${Math.round((h % 30.48) / 2.54)}") | ${(h / 2.54).toFixed(1)} ইঞ্চি`);
+  if (w) res.push(`ওজন: ${(w * 2.20462).toFixed(2)} পাউন্ড (lb)`);
+  if (d) {
+    let dt = new Date(d + 'T12:00:00');
+    res.push('বাংলা তারিখ: ' + new Intl.DateTimeFormat('bn-BD-u-ca-beng', { dateStyle: 'long' }).format(dt));
+    try { res.push('হিজরি তারিখ: ' + new Intl.DateTimeFormat('bn-BD-u-ca-islamic', { dateStyle: 'long' }).format(dt)); } catch (e) {}
+  }
+  $('convertResult').innerHTML = res.length ? res.join('<br>') : 'অনুগ্রহ করে অন্তত একটি মান লিখুন';
+}
+
+// ==================== ORDER & FIREBASE SYSTEM ====================
+let auth = null, db = null, user = null, admin = false, fb = false;
+const localGet = () => { try { return JSON.parse(localStorage.getItem('amarkaj_v6_orders') || '[]'); } catch (e) { return []; } };
+const localSet = a => localStorage.setItem('amarkaj_v6_orders', JSON.stringify(a));
+
+function populateOrderServices() {
+  $('oService').innerHTML = ALL_TOOLS.map(s => `<option value="${s.id}">${s.title} (${s.bn}) — ফ্রি</option>`).join('');
+}
+function calcTotal() { $('oTotal').textContent = 'ফ্রি — ৳০'; }
+
+function config() {
+  return {
+    apiKey: $('fbApiKey').value.trim(), authDomain: $('fbAuthDomain').value.trim(),
+    projectId: $('fbProjectId').value.trim(), storageBucket: $('fbBucket').value.trim(),
+    messagingSenderId: $('fbSender').value.trim(), appId: $('fbAppId').value.trim()
+  };
+}
+function connect(c) {
+  try {
+    if (!window.firebase || !c.apiKey || !c.projectId) return false;
+    let app = firebase.apps.length ? firebase.app() : firebase.initializeApp(c);
+    auth = app.auth(); db = app.firestore(); fb = true;
+    auth.onAuthStateChanged(u => {
+      user = u || null;
+      $('authState').textContent = u ? u.email : 'Guest Mode';
+      if (u) loadMyOrders();
+    });
+    $('fbStatus').textContent = 'Firebase Cloud সংযুক্ত ও সক্রিয়!';
+    return true;
+  } catch (e) { fb = false; $('fbStatus').textContent = e.message; return false; }
+}
+function loadConfig() {
+  try {
+    let c = JSON.parse(localStorage.getItem('amarkaj_v6_fb') || 'null');
+    if (!c) return;
+    [['fbApiKey', 'apiKey'], ['fbAuthDomain', 'authDomain'], ['fbProjectId', 'projectId'], ['fbBucket', 'storageBucket'], ['fbSender', 'messagingSenderId'], ['fbAppId', 'appId']].forEach(([a, b]) => $(a).value = c[b] || '');
+    connect(c);
+  } catch (e) {}
+}
+function saveFirebase() {
+  let c = config();
+  localStorage.setItem('amarkaj_v6_fb', JSON.stringify(c));
+  if (connect(c)) notify('Firebase সফলভাবে সংযুক্ত হয়েছে');
+}
+async function testFirebase() {
+  if (!fb) return notify('আগে Firebase config সেভ করুন');
+  try { await db.collection('_health').limit(1).get(); notify('Firestore সংযোগ ঠিক আছে!'); } catch (e) { notify(e.message); }
+}
+
+async function signup() {
+  if (!fb) return notify('আগে Firebase সেটআপ করুন');
+  try { await auth.createUserWithEmailAndPassword($('cEmail').value.trim(), $('cPass').value); notify('অ্যাকাউন্ট তৈরি হয়েছে'); } catch (e) { $('cMsg').textContent = e.message; }
+}
+async function login() {
+  if (!fb) return notify('আগে Firebase সেটআপ করুন');
+  try { await auth.signInWithEmailAndPassword($('cEmail').value.trim(), $('cPass').value); notify('লগইন সফল হয়েছে'); } catch (e) { $('cMsg').textContent = e.message; }
+}
+async function logout() {
+  if (auth) await auth.signOut();
+  user = null; admin = false; $('adminArea').classList.add('hidden-view'); $('authState').textContent = 'Guest Mode'; loadMyOrders();
+}
+async function adminLogin() {
+  if (!fb) return $('aMsg').textContent = 'Firebase config করুন';
+  try {
+    let cred = await auth.signInWithEmailAndPassword($('aEmail').value.trim(), $('aPass').value);
+    let token = await cred.user.getIdTokenResult(true);
+    if (token.claims.admin !== true) { await auth.signOut(); throw Error('Admin custom claim (admin=true) নেই'); }
+    admin = true; $('adminArea').classList.remove('hidden-view'); $('aMsg').textContent = 'Admin Verified'; renderAdmin();
+  } catch (e) { $('aMsg').textContent = e.message; }
+}
+
+async function createOrder() {
+  let name = $('oName').value.trim(), phone = $('oPhone').value.trim(), s = ALL_TOOLS.find(x => x.id === $('oService').value);
+  let qty = Math.max(1, parseInt($('oQty').value || 1));
+  if (!name || !phone || !s) return notify('নাম ও মোবাইল নম্বর দিন');
+  let o = { name, phone, service: s.title, qty, total: 0, note: $('oNote').value.trim(), status: 'Pending', paymentStatus: 'Free/Unpaid', createdAt: new Date().toISOString(), uid: user?.uid || 'guest' };
+  if (fb && user) { let ref = await db.collection('orders').add(o); o.id = ref.id; }
+  else { o.id = 'AMK-' + Date.now().toString().slice(-6); let a = localGet(); a.unshift(o); localSet(a); }
+  notify('অর্ডার জমা হয়েছে! ID: ' + o.id);
+  $('oNote').value = '';
+  go('customer', $('nav-customer'));
+}
+
+function renderOrderTable(a, isAdmin = false) {
+  if (!a.length) return '<p class="text-slate-500 p-4 text-center">কোনো অর্ডার পাওয়া যায়নি।</p>';
+  return `<div class="tablewrap"><table class="data"><thead><tr><th>Order ID</th><th>Customer</th><th>Service</th><th>Status</th>${isAdmin ? '<th>Action</th>' : ''}</tr></thead><tbody>
+    ${a.map(o => `<tr>
+      <td><b>${esc(o.id)}</b><small class="block text-slate-400">${new Date(o.createdAt).toLocaleDateString()}</small></td>
+      <td>${esc(o.name)}<small class="block text-slate-500">${esc(o.phone)}</small></td>
+      <td>${esc(o.service)} (×${o.qty})<small class="block text-slate-400">${esc(o.note)}</small></td>
+      <td><span class="pill ${o.status === 'Completed' ? 'paid' : 'pending'}">${esc(o.status)}</span></td>
+      ${isAdmin ? `<td><button class="text-blue-600 font-bold mr-2" onclick="changeOrder('${esc(o.id)}','Processing')">Process</button><button class="text-emerald-600 font-bold" onclick="changeOrder('${esc(o.id)}','Completed')">Done</button></td>` : ''}
+    </tr>`).join('')}
+  </tbody></table></div>`;
+}
+
+async function loadMyOrders() {
+  let a = localGet();
+  if (fb && user) {
+    let snap = await db.collection('orders').where('uid', '==', user.uid).get();
+    a = snap.docs.map(d => ({ ...d.data(), id: d.id }));
+  }
+  $('myOrders').innerHTML = renderOrderTable(a);
+}
+
+async function renderAdmin() {
+  if (!admin) return;
+  let a = localGet();
+  if (fb) {
+    let snap = await db.collection('orders').get();
+    a = snap.docs.map(d => ({ ...d.data(), id: d.id }));
+  }
+  $('sOrders').textContent = a.length;
+  $('sPending').textContent = a.filter(x => x.status === 'Pending').length;
+  $('sPaid').textContent = a.filter(x => x.status === 'Completed').length;
+  $('allOrders').innerHTML = renderOrderTable(a, true);
+}
+
+async function changeOrder(id, status) {
+  if (fb) await db.collection('orders').doc(id).update({ status });
+  else {
+    let a = localGet(), i = a.findIndex(x => x.id === id);
+    if (i >= 0) { a[i].status = status; localSet(a); }
+  }
+  renderAdmin(); loadMyOrders();
+}
+
+// ==================== EMBEDDED WORD <-> PDF CONVERTER ====================
+const LEGACY='PCFET0NUWVBFIGh0bWw+CjxodG1sIGxhbmc9ImJuIj4KPGhlYWQ+CiAgICA8bWV0YSBjaGFyc2V0PSJVVEYtOCI+CiAgICA8bWV0YSBuYW1lPSJ2aWV3cG9ydCIgY29udGVudD0id2lkdGg9ZGV2aWNlLXdpZHRoLCBpbml0aWFsLXNjYWxlPTEuMCI+CiAgICA8dGl0bGU+QW1hcmthaiBQcm8gUERGICYgV29yZCBDb252ZXJ0ZXI8L3RpdGxlPgogICAgPCEtLSBUYWlsd2luZCBDU1MgQ0ROIC0tPgogICAgPHNjcmlwdCBzcmM9Imh0dHBzOi8vY2RuLnRhaWx3aW5kY3NzLmNvbSI+PC9zY3JpcHQ+CiAgICA8IS0tIEZvbnRBd2Vzb21lIEljb25zIC0tPgogICAgPGxpbmsgcmVsPSJzdHlsZXNoZWV0IiBocmVmPSJodHRwczovL2NkbmpzLmNsb3VkZmxhcmUuY29tL2FqYXgvbGlicy9mb250LWF3ZXNvbWUvNi40LjAvY3NzL2FsbC5taW4uY3NzIj4KICAgIDwhLS0gRE9DWCBQcmV2aWV3OiBwcmVzZXJ2ZXMgbW9yZSBXb3JkIGxheW91dCBpbmZvcm1hdGlvbiB0aGFuIHBsYWluIHRleHQgZXh0cmFjdGlvbiAtLT4KICAgIDxzY3JpcHQgc3JjPSJodHRwczovL3VucGtnLmNvbS9kb2N4LXByZXZpZXdAMC4zLjYvZGlzdC9kb2N4LXByZXZpZXcuanMiPjwvc2NyaXB0PgogICAgPCEtLSBodG1sMnBkZi5qcyAoSFRNTCB0byBQREYgY29udmVydGVyKSAtLT4KICAgIDxzY3JpcHQgc3JjPSJodHRwczovL2NkbmpzLmNsb3VkZmxhcmUuY29tL2FqYXgvbGlicy9odG1sMnBkZi5qcy8wLjEwLjEvaHRtbDJwZGYuYnVuZGxlLm1pbi5qcyI+PC9zY3JpcHQ+CiAgICA8IS0tIFBERi5qcyAoUERGIFRleHQgRXh0cmFjdG9yKSAtLT4KICAgIDxzY3JpcHQgc3JjPSJodHRwczovL2NkbmpzLmNsb3VkZmxhcmUuY29tL2FqYXgvbGlicy9wZGYuanMvMy4xMS4xNzQvcGRmLm1pbi5qcyI+PC9zY3JpcHQ+CgogICAgPHNjcmlwdD4KICAgICAgICB0YWlsd2luZC5jb25maWcgPSB7CiAgICAgICAgICAgIHRoZW1lOiB7CiAgICAgICAgICAgICAgICBleHRlbmQ6IHsKICAgICAgICAgICAgICAgICAgICBjb2xvcnM6IHsKICAgICAgICAgICAgICAgICAgICAgICAgcHJpbWFyeTogewogICAgICAgICAgICAgICAgICAgICAgICAgICAgNTA6ICcjZmZmMWYxJywKICAgICAgICAgICAgICAgICAgICAgICAgICAgIDEwMDogJyNmZmUxZTEnLAogICAgICAgICAgICAgICAgICAgICAgICAgICAgNTAwOiAnI2U1MzIyZCcsCiAgICAgICAgICAgICAgICAgICAgICAgICAgICA2MDA6ICcjY2MyNDFmJywKICAgICAgICAgICAgICAgICAgICAgICAgICAgIDcwMDogJyNhODFhMTYnLAogICAgICAgICAgICAgICAgICAgICAgICB9CiAgICAgICAgICAgICAgICAgICAgfQogICAgICAgICAgICAgICAgfQogICAgICAgICAgICB9CiAgICAgICAgfQogICAgPC9zY3JpcHQ+CiAgICA8c3R5bGU+CiAgICAgICAgQGltcG9ydCB1cmwoJ2h0dHBzOi8vZm9udHMuZ29vZ2xlYXBpcy5jb20vY3NzMj9mYW1pbHk9SGluZCtTaWxpZ3VyaTp3Z2h0QDQwMDs1MDA7NjAwOzcwMCZmYW1pbHk9SW50ZXI6d2dodEA0MDA7NTAwOzYwMDs3MDAmZGlzcGxheT1zd2FwJyk7CiAgICAgICAgYm9keSB7CiAgICAgICAgICAgIGZvbnQtZmFtaWx5OiAnSGluZCBTaWxpZ3VyaScsICdJbnRlcicsIHNhbnMtc2VyaWY7CiAgICAgICAgfQogICAgICAgIC5wcmV2aWV3LWNvbnRlbnQgewogICAgICAgICAgICBmb250LWZhbWlseTogJ0hpbmQgU2lsaWd1cmknLCBBcmlhbCwgc2Fucy1zZXJpZjsKICAgICAgICAgICAgbGluZS1oZWlnaHQ6IDEuODsKICAgICAgICAgICAgY29sb3I6ICMxYTFhMWE7CiAgICAgICAgICAgIGZvbnQtc2l6ZTogMTVweDsKICAgICAgICAgICAgd29yZC1icmVhazogYnJlYWstd29yZDsKICAgICAgICAgICAgb3ZlcmZsb3ctd3JhcDogYnJlYWstd29yZDsKICAgICAgICB9CiAgICAgICAgLnByZXZpZXctY29udGVudCBwIHsgCiAgICAgICAgICAgIG1hcmdpbi1ib3R0b206IDFyZW07IAogICAgICAgIH0KICAgICAgICAucHJldmlldy1jb250ZW50IGgxLCAucHJldmlldy1jb250ZW50IGgyLCAucHJldmlldy1jb250ZW50IGgzLCAucHJldmlldy1jb250ZW50IGg0IHsKICAgICAgICAgICAgZm9udC13ZWlnaHQ6IGJvbGQ7CiAgICAgICAgICAgIG1hcmdpbi10b3A6IDEuMnJlbTsKICAgICAgICAgICAgbWFyZ2luLWJvdHRvbTogMC42cmVtOwogICAgICAgICAgICBjb2xvcjogIzExMTsKICAgICAgICB9CiAgICAgICAgLnByZXZpZXctY29udGVudCBoMSB7IGZvbnQtc2l6ZTogMS44cmVtOyB9CiAgICAgICAgLnByZXZpZXctY29udGVudCBoMiB7IGZvbnQtc2l6ZTogMS40cmVtOyB9CiAgICAgICAgLnByZXZpZXctY29udGVudCBoMyB7IGZvbnQtc2l6ZTogMS4ycmVtOyB9CiAgICAgICAgCiAgICAgICAgLyogUGVyZmVjdCBUYWJsZSBMYXlvdXQgUmV0ZW50aW9uICovCiAgICAgICAgLnByZXZpZXctY29udGVudCB0YWJsZSB7CiAgICAgICAgICAgIHdpZHRoOiAxMDAlICFpbXBvcnRhbnQ7CiAgICAgICAgICAgIGJvcmRlci1jb2xsYXBzZTogY29sbGFwc2UgIWltcG9ydGFudDsKICAgICAgICAgICAgbWFyZ2luOiAxNXB4IDAgIWltcG9ydGFudDsKICAgICAgICAgICAgdGFibGUtbGF5b3V0OiBhdXRvICFpbXBvcnRhbnQ7CiAgICAgICAgfQogICAgICAgIC5wcmV2aWV3LWNvbnRlbnQgdGgsIC5wcmV2aWV3LWNvbnRlbnQgdGQgewogICAgICAgICAgICBib3JkZXI6IDFweCBzb2xpZCAjYjViNWI1ICFpbXBvcnRhbnQ7CiAgICAgICAgICAgIHBhZGRpbmc6IDEwcHggMTJweCAhaW1wb3J0YW50OwogICAgICAgICAgICB0ZXh0LWFsaWduOiBsZWZ0OwogICAgICAgICAgICB2ZXJ0aWNhbC1hbGlnbjogdG9wOwogICAgICAgIH0KICAgICAgICAucHJldmlldy1jb250ZW50IHRoIHsKICAgICAgICAgICAgYmFja2dyb3VuZC1jb2xvcjogI2YzZjRmNjsKICAgICAgICAgICAgZm9udC13ZWlnaHQ6IGJvbGQ7CiAgICAgICAgfQoKICAgICAgICAvKiBTdHJpY3QgSW1hZ2UgUG9zaXRpb25pbmcgJiBMYXlvdXQgUHJvdGVjdGlvbiAqLwogICAgICAgIC5wcmV2aWV3LWNvbnRlbnQgaW1nIHsKICAgICAgICAgICAgbWF4LXdpZHRoOiAxMDAlICFpbXBvcnRhbnQ7CiAgICAgICAgICAgIGhlaWdodDogYXV0byAhaW1wb3J0YW50OwogICAgICAgICAgICBkaXNwbGF5OiBpbmxpbmUtYmxvY2s7CiAgICAgICAgICAgIG1hcmdpbjogMTJweCBhdXRvOwogICAgICAgICAgICBvYmplY3QtZml0OiBjb250YWluOwogICAgICAgICAgICBwYWdlLWJyZWFrLWluc2lkZTogYXZvaWQ7CiAgICAgICAgICAgIGJyZWFrLWluc2lkZTogYXZvaWQ7CiAgICAgICAgfQoKICAgICAgICAvKiBBdm9pZCBmb3JjaW5nIGV2ZXJ5IHRhYmxlIHRvIGZ1bGwgd2lkdGg6IGtlZXAgaW1wb3J0ZWQgZGltZW5zaW9ucyB3aGVyZSBwb3NzaWJsZSAqLwogICAgICAgIC5wcmV2aWV3LWNvbnRlbnQgKiB7IGJveC1zaXppbmc6IGJvcmRlci1ib3g7IH0KICAgICAgICAucHJldmlldy1jb250ZW50IGltZyB7IG1heC13aWR0aDogMTAwJTsgaGVpZ2h0OiBhdXRvOyB9CiAgICAgICAgLnByZXZpZXctY29udGVudCAuZG9jeC13cmFwcGVyIHsgcGFkZGluZzogMCAhaW1wb3J0YW50OyBiYWNrZ3JvdW5kOiAjZmZmICFpbXBvcnRhbnQ7IH0KICAgICAgICAucHJldmlldy1jb250ZW50IC5kb2N4IHsgbWFyZ2luOiAwIGF1dG8gIWltcG9ydGFudDsgYm94LXNoYWRvdzogbm9uZSAhaW1wb3J0YW50OyB9CiAgICAgICAgI2RvY3hSZW5kZXJIb3N0IHsgcG9zaXRpb246IGZpeGVkOyBsZWZ0OiAtMzAwMDBweDsgdG9wOiAwOyB3aWR0aDogOTAwcHg7IGJhY2tncm91bmQ6ICNmZmY7IH0KICAgICAgICAjZG9jeFJlbmRlckhvc3QgLmRvY3gtd3JhcHBlciB7IGJhY2tncm91bmQ6ICNmZmYgIWltcG9ydGFudDsgfQogICAgICAgICNkb2N4UmVuZGVySG9zdCAuZG9jeCB7IGJveC1zaGFkb3c6IG5vbmUgIWltcG9ydGFudDsgfQogICAgICAgIC5wZGYtcGFnZS1pbWFnZSB7IGRpc3BsYXk6YmxvY2s7IHdpZHRoOjEwMCU7IGhlaWdodDphdXRvOyBtYXJnaW46MCBhdXRvOyBwYWdlLWJyZWFrLWFmdGVyOmFsd2F5czsgYnJlYWstYWZ0ZXI6cGFnZTsgfQogICAgICAgIC5wZGYtcGFnZS1pbWFnZTpsYXN0LWNoaWxkIHsgcGFnZS1icmVhay1hZnRlcjphdXRvOyBicmVhay1hZnRlcjphdXRvOyB9CiAgICAgICAgLyogS2VlcCByZW5kZXJlZCBET0NYIHBhZ2VzIGF0IHRoZWlyIG93biBwYWdlIHNpemUgaW5zdGVhZCBvZiBmb3JjaW5nIGFsbCBwYWdlcyBpbnRvIG9uZSBmbG93LiAqLwogICAgICAgICNvdXRwdXRQcmV2aWV3IC5kb2N4LXdyYXBwZXIgeyBwYWRkaW5nOjAgIWltcG9ydGFudDsgYmFja2dyb3VuZDojZmZmICFpbXBvcnRhbnQ7IH0KICAgICAgICAjb3V0cHV0UHJldmlldyAuZG9jeCB7IG1hcmdpbjowIGF1dG8gIWltcG9ydGFudDsgYm94LXNoYWRvdzpub25lICFpbXBvcnRhbnQ7IH0KICAgICAgICAjb3V0cHV0UHJldmlldyAuZG9jeCB0YWJsZSB7IG1heC13aWR0aDoxMDAlOyB9CiAgICAgICAgI291dHB1dFByZXZpZXcgLmRvY3ggaW1nIHsgbWF4LXdpZHRoOjEwMCU7IH0KICAgICAgICAuYW1hcmthai13b3JkLXBhZ2UgeyBtYXJnaW46MDsgcGFkZGluZzowOyBib3JkZXI6MDsgcGFnZS1icmVhay1hZnRlcjphbHdheXM7IGJyZWFrLWFmdGVyOnBhZ2U7IH0KICAgICAgICAuYW1hcmthai13b3JkLXBhZ2U6bGFzdC1jaGlsZCB7IHBhZ2UtYnJlYWstYWZ0ZXI6YXV0bzsgYnJlYWstYWZ0ZXI6YXV0bzsgfQogICAgICAgIC8qIEE0IHBvcnRyYWl0IGNhbnZhcyBmb3IgUERGIGV4cG9ydCBhbmQgcHJpbnQgcHJldmlldyAqLwogICAgICAgIC5hbWFya2FqLWE0LWV4cG9ydCB7IHdpZHRoOjIxMG1tICFpbXBvcnRhbnQ7IG1pbi13aWR0aDoyMTBtbSAhaW1wb3J0YW50OyBtYXgtd2lkdGg6MjEwbW0gIWltcG9ydGFudDsgbWFyZ2luOjAgYXV0byAhaW1wb3J0YW50OyBiYWNrZ3JvdW5kOiNmZmYgIWltcG9ydGFudDsgfQogICAgICAgIEBwYWdlIHsgc2l6ZTpBNCBwb3J0cmFpdDsgbWFyZ2luOjA7IH0KICAgICAgICBAbWVkaWEgcHJpbnQgewogICAgICAgICAgICBodG1sLCBib2R5IHsgd2lkdGg6MjEwbW07IG1hcmdpbjowICFpbXBvcnRhbnQ7IHBhZGRpbmc6MCAhaW1wb3J0YW50OyBiYWNrZ3JvdW5kOiNmZmYgIWltcG9ydGFudDsgfQogICAgICAgICAgICAjb3V0cHV0UHJldmlldyB7IHdpZHRoOjIxMG1tICFpbXBvcnRhbnQ7IG1heC13aWR0aDoyMTBtbSAhaW1wb3J0YW50OyBtYXJnaW46MCAhaW1wb3J0YW50OyBwYWRkaW5nOjAgIWltcG9ydGFudDsgYm9yZGVyOjAgIWltcG9ydGFudDsgb3ZlcmZsb3c6dmlzaWJsZSAhaW1wb3J0YW50OyB9CiAgICAgICAgICAgIC5hbWFya2FqLWE0LWV4cG9ydCB7IHdpZHRoOjIxMG1tICFpbXBvcnRhbnQ7IG1pbi13aWR0aDoyMTBtbSAhaW1wb3J0YW50OyBtYXgtd2lkdGg6MjEwbW0gIWltcG9ydGFudDsgfQogICAgICAgIH0KICAgIDwvc3R5bGU+CjwvaGVhZD4KPGJvZHkgY2xhc3M9ImJnLWdyYXktNTAgdGV4dC1ncmF5LTgwMCBmbGV4IGZsZXgtY29sIG1pbi1oLXNjcmVlbiI+CgogICAgPCEtLSBIZWFkZXIgTmF2aWdhdGlvbiAtLT4KICAgIDxoZWFkZXIgY2xhc3M9ImJnLXdoaXRlIGJvcmRlci1iIGJvcmRlci1ncmF5LTIwMCBzdGlja3kgdG9wLTAgei01MCBzaGFkb3ctc20iPgogICAgICAgIDxkaXYgY2xhc3M9Im1heC13LTZ4bCBteC1hdXRvIHB4LTQgc206cHgtNiBoLTE2IGZsZXggaXRlbXMtY2VudGVyIGp1c3RpZnktYmV0d2VlbiI+CiAgICAgICAgICAgIDxhIGhyZWY9IiMiIGNsYXNzPSJmbGV4IGl0ZW1zLWNlbnRlciBnYXAtMyB0ZXh0LXByaW1hcnktNTAwIGZvbnQtYm9sZCB0ZXh0LXhsIHRyYWNraW5nLXRpZ2h0IGhvdmVyOm9wYWNpdHktOTAgdHJhbnNpdGlvbiI+CiAgICAgICAgICAgICAgICA8ZGl2IGNsYXNzPSJ3LTEwIGgtMTAgcm91bmRlZC14bCBiZy1wcmltYXJ5LTUwMCBmbGV4IGl0ZW1zLWNlbnRlciBqdXN0aWZ5LWNlbnRlciB0ZXh0LXdoaXRlIHNoYWRvdy1tZCBzaGFkb3ctcmVkLTIwMCI+CiAgICAgICAgICAgICAgICAgICAgPGkgY2xhc3M9ImZhLXNvbGlkIGZhLWZpbGUtY29udHJhY3QgdGV4dC14bCI+PC9pPgogICAgICAgICAgICAgICAgPC9kaXY+CiAgICAgICAgICAgICAgICA8c3Bhbj5BbWFya2FqIFBybyBUb29sczwvc3Bhbj4KICAgICAgICAgICAgPC9hPgogICAgICAgICAgICA8ZGl2IGNsYXNzPSJmbGV4IGl0ZW1zLWNlbnRlciBnYXAtMiB0ZXh0LXhzIHNtOnRleHQtc20gZm9udC1tZWRpdW0gdGV4dC1ncmF5LTUwMCBiZy1ncmF5LTEwMCBweC0zIHB5LTEuNSByb3VuZGVkLWZ1bGwiPgogICAgICAgICAgICAgICAgPHNwYW4gY2xhc3M9InctMiBoLTIgcm91bmRlZC1mdWxsIGJnLWVtZXJhbGQtNTAwIGFuaW1hdGUtcHVsc2UiPjwvc3Bhbj4KICAgICAgICAgICAgICAgIDxzcGFuPjEwMCUgQ2xpZW50LVNpZGUgRW5naW5lPC9zcGFuPgogICAgICAgICAgICA8L2Rpdj4KICAgICAgICA8L2Rpdj4KICAgIDwvaGVhZGVyPgoKICAgIDwhLS0gTWFpbiBTZWN0aW9uIC0tPgogICAgPG1haW4gY2xhc3M9ImZsZXgtMSBtYXgtdy00eGwgdy1mdWxsIG14LWF1dG8gcHgtNCBweS04IHNtOnB5LTEyIj4KICAgICAgICA8ZGl2IGNsYXNzPSJ0ZXh0LWNlbnRlciBtYi04Ij4KICAgICAgICAgICAgPGgxIGNsYXNzPSJ0ZXh0LTJ4bCBzbTp0ZXh0LTN4bCBmb250LWV4dHJhYm9sZCB0ZXh0LWdyYXktOTAwIG1iLTIgc206bWItMyI+CiAgICAgICAgICAgICAgICDgpqrgp4fgprbgpr7gpqbgpr7gprAg4Kah4KaV4KeB4Kau4KeH4Kao4KeN4KafIOCmleCmqOCmreCmvuCmsOCnjeCmn+CmvuCmsAogICAgICAgICAgICA8L2gxPgogICAgICAgICAgICA8cCBjbGFzcz0idGV4dC1ncmF5LTYwMCB0ZXh0LXNtIHNtOnRleHQtYmFzZSBtYXgtdy14bCBteC1hdXRvIj4KICAgICAgICAgICAgICAgIFdvcmQg4Kal4KeH4KaV4KeHIFBERiDgpo/gpqzgpoIgUERGIOCmpeCnh+CmleCnhyBXb3JkLWNvbXBhdGlibGUg4Kar4Ka+4KaH4KayIOCmpOCniOCmsOCmvyDgppXgprDgp4HgpqjgpaQg4Kau4KeC4KayIGxheW91dCDgpq/gpqTgpp/gpr4g4Ka44Kau4KeN4Kat4KasIOCmsOCmvuCmluCnhzsgUERGIOCmpeCnh+CmleCnhyBXb3JkLeCmjyDgpqrgp4Pgprfgp43gpqDgpr4t4Kab4Kas4Ka/IOCmrOCnjeCmr+CmrOCmueCmvuCmsCDgppXgprDgp4cg4Kam4KeD4Ka24KeN4Kav4Kau4Ka+4KaoIOCmrOCmv+CmqOCnjeCmr+CmvuCmuCDgprjgpoLgprDgppXgp43gprfgpqMg4KaV4Kaw4KeH4KWkCiAgICAgICAgICAgIDwvcD4KICAgICAgICA8L2Rpdj4KCiAgICAgICAgPCEtLSBNYWluIENhcmQgLS0+CiAgICAgICAgPGRpdiBjbGFzcz0iYmctd2hpdGUgcm91bmRlZC0yeGwgYm9yZGVyIGJvcmRlci1ncmF5LTIwMCBzaGFkb3cteGwgb3ZlcmZsb3ctaGlkZGVuIj4KICAgICAgICAgICAgPCEtLSBOYXZpZ2F0aW9uIFRhYnMgLS0+CiAgICAgICAgICAgIDxkaXYgY2xhc3M9ImZsZXggYm9yZGVyLWIgYm9yZGVyLWdyYXktMjAwIGJnLWdyYXktNTAvNzAgcC0xLjUgc206cC0yIGdhcC0xLjUgc206Z2FwLTIiPgogICAgICAgICAgICAgICAgPGJ1dHRvbiBpZD0idGFiLXdvcmRUb1BkZiIgb25jbGljaz0ic3dpdGNoVGFiKCd3b3JkVG9QZGYnKSIgCiAgICAgICAgICAgICAgICAgICAgICAgIGNsYXNzPSJmbGV4LTEgcHktMyBweC00IHJvdW5kZWQteGwgZm9udC1zZW1pYm9sZCB0ZXh0LXNtIHNtOnRleHQtYmFzZSBmbGV4IGl0ZW1zLWNlbnRlciBqdXN0aWZ5LWNlbnRlciBnYXAtMiB0cmFuc2l0aW9uLWFsbCBkdXJhdGlvbi0yMDAgYmctd2hpdGUgdGV4dC1wcmltYXJ5LTUwMCBzaGFkb3ctc20gYm9yZGVyIGJvcmRlci1ncmF5LTEwMCI+CiAgICAgICAgICAgICAgICAgICAgPGkgY2xhc3M9ImZhLXNvbGlkIGZhLWZpbGUtd29yZCB0ZXh0LWxnIj48L2k+CiAgICAgICAgICAgICAgICAgICAgPHNwYW4+V29yZCB0byBQREY8L3NwYW4+CiAgICAgICAgICAgICAgICA8L2J1dHRvbj4KICAgICAgICAgICAgICAgIDxidXR0b24gaWQ9InRhYi1wZGZUb1dvcmQiIG9uY2xpY2s9InN3aXRjaFRhYigncGRmVG9Xb3JkJykiIAogICAgICAgICAgICAgICAgICAgICAgICBjbGFzcz0iZmxleC0xIHB5LTMgcHgtNCByb3VuZGVkLXhsIGZvbnQtc2VtaWJvbGQgdGV4dC1zbSBzbTp0ZXh0LWJhc2UgZmxleCBpdGVtcy1jZW50ZXIganVzdGlmeS1jZW50ZXIgZ2FwLTIgdHJhbnNpdGlvbi1hbGwgZHVyYXRpb24tMjAwIHRleHQtZ3JheS02MDAgaG92ZXI6dGV4dC1ncmF5LTkwMCBob3ZlcjpiZy13aGl0ZS82MCI+CiAgICAgICAgICAgICAgICAgICAgPGkgY2xhc3M9ImZhLXNvbGlkIGZhLWZpbGUtcGRmIHRleHQtbGciPjwvaT4KICAgICAgICAgICAgICAgICAgICA8c3Bhbj5QREYgdG8gV29yZDwvc3Bhbj4KICAgICAgICAgICAgICAgIDwvYnV0dG9uPgogICAgICAgICAgICA8L2Rpdj4KCiAgICAgICAgICAgIDxkaXYgY2xhc3M9InAtNiBzbTpwLTgiPgogICAgICAgICAgICAgICAgPCEtLSBUb2FzdCBOb3RpZmljYXRpb24gQ29udGFpbmVyIC0tPgogICAgICAgICAgICAgICAgPGRpdiBpZD0idG9hc3QiIGNsYXNzPSJoaWRkZW4gbWItNCBwLTQgcm91bmRlZC14bCB0ZXh0LXNtIGZvbnQtbWVkaXVtIGZsZXggaXRlbXMtY2VudGVyIGdhcC0zIHRyYW5zaXRpb24tYWxsIj48L2Rpdj4KCiAgICAgICAgICAgICAgICA8IS0tIFdvcmQgdG8gUERGIFNlY3Rpb24gLS0+CiAgICAgICAgICAgICAgICA8ZGl2IGlkPSJ3b3JkVG9QZGZTZWN0aW9uIiBjbGFzcz0ic3BhY2UteS02Ij4KICAgICAgICAgICAgICAgICAgICA8ZGl2IGlkPSJ3b3JkRHJvcHpvbmUiIAogICAgICAgICAgICAgICAgICAgICAgICAgb25jbGljaz0iZG9jdW1lbnQuZ2V0RWxlbWVudEJ5SWQoJ3dvcmRGaWxlSW5wdXQnKS5jbGljaygpIgogICAgICAgICAgICAgICAgICAgICAgICAgb25kcmFnb3Zlcj0iaGFuZGxlRHJhZ092ZXIoZXZlbnQsIHRoaXMpIiAKICAgICAgICAgICAgICAgICAgICAgICAgIG9uZHJhZ2xlYXZlPSJoYW5kbGVEcmFnTGVhdmUoZXZlbnQsIHRoaXMpIiAKICAgICAgICAgICAgICAgICAgICAgICAgIG9uZHJvcD0iaGFuZGxlRmlsZURyb3AoZXZlbnQsICd3b3JkRmlsZUlucHV0JywgY29udmVydFdvcmRUb1BkZikiCiAgICAgICAgICAgICAgICAgICAgICAgICBjbGFzcz0iYm9yZGVyLTIgYm9yZGVyLWRhc2hlZCBib3JkZXItcmVkLTIwMCBob3Zlcjpib3JkZXItcHJpbWFyeS01MDAgYmctcHJpbWFyeS01MC80MCBob3ZlcjpiZy1wcmltYXJ5LTUwLzgwIHRyYW5zaXRpb24tYWxsIGR1cmF0aW9uLTIwMCByb3VuZGVkLTJ4bCBwLTggc206cC0xMiB0ZXh0LWNlbnRlciBjdXJzb3ItcG9pbnRlciBncm91cCI+CiAgICAgICAgICAgICAgICAgICAgICAgIDxkaXYgY2xhc3M9InctMTYgaC0xNiBiZy13aGl0ZSByb3VuZGVkLWZ1bGwgZmxleCBpdGVtcy1jZW50ZXIganVzdGlmeS1jZW50ZXIgbXgtYXV0byBtYi00IHRleHQtcHJpbWFyeS01MDAgc2hhZG93LXNtIGdyb3VwLWhvdmVyOnNjYWxlLTExMCB0cmFuc2l0aW9uLXRyYW5zZm9ybSI+CiAgICAgICAgICAgICAgICAgICAgICAgICAgICA8aSBjbGFzcz0iZmEtc29saWQgZmEtY2xvdWQtYXJyb3ctdXAgdGV4dC0zeGwiPjwvaT4KICAgICAgICAgICAgICAgICAgICAgICAgPC9kaXY+CiAgICAgICAgICAgICAgICAgICAgICAgIDxoMyBjbGFzcz0idGV4dC1sZyBmb250LWJvbGQgdGV4dC1ncmF5LTgwMCBtYi0xIj5Xb3JkICguZG9jeCkg4Kar4Ka+4KaH4KayIOCmqOCmv+CmsOCnjeCmrOCmvuCmmuCmqCDgppXgprDgp4Hgpqg8L2gzPgogICAgICAgICAgICAgICAgICAgICAgICA8cCBjbGFzcz0idGV4dC14cyBzbTp0ZXh0LXNtIHRleHQtZ3JheS01MDAgbWItMyI+4KaP4KaW4Ka+4Kao4KeHIOCmleCnjeCmsuCmv+CmlSDgppXgprDgp4Hgpqgg4KaF4Kal4Kas4Ka+IOCmoeCmlSDgpqvgpr7gpofgprIg4Kaf4KeH4Kao4KeHIOCmhuCmqOCngeCmqDwvcD4KICAgICAgICAgICAgICAgICAgICAgICAgPHNwYW4gY2xhc3M9ImlubGluZS1mbGV4IGl0ZW1zLWNlbnRlciBweC0zIHB5LTEgcm91bmRlZC1mdWxsIHRleHQteHMgZm9udC1tZWRpdW0gYmctcmVkLTEwMCB0ZXh0LXByaW1hcnktNzAwIj4KICAgICAgICAgICAgICAgICAgICAgICAgICAgIC5kb2N4IOCmuOCmruCmsOCnjeCmpeCmv+CmpCAo4Kaf4KeH4Kas4Ka/4KayIOCmkyDgppvgpqzgpr8g4Ka44Ka5KQogICAgICAgICAgICAgICAgICAgICAgICA8L3NwYW4+CiAgICAgICAgICAgICAgICAgICAgPC9kaXY+CiAgICAgICAgICAgICAgICAgICAgPGlucHV0IHR5cGU9ImZpbGUiIGlkPSJ3b3JkRmlsZUlucHV0IiBhY2NlcHQ9Ii5kb2N4IiBjbGFzcz0iaGlkZGVuIiBvbmNoYW5nZT0iY29udmVydFdvcmRUb1BkZigpIj4KICAgICAgICAgICAgICAgIDwvZGl2PgoKICAgICAgICAgICAgICAgIDwhLS0gUERGIHRvIFdvcmQgU2VjdGlvbiAtLT4KICAgICAgICAgICAgICAgIDxkaXYgaWQ9InBkZlRvV29yZFNlY3Rpb24iIGNsYXNzPSJzcGFjZS15LTYgaGlkZGVuIj4KICAgICAgICAgICAgICAgICAgICA8ZGl2IGlkPSJwZGZEcm9wem9uZSIgCiAgICAgICAgICAgICAgICAgICAgICAgICBvbmNsaWNrPSJkb2N1bWVudC5nZXRFbGVtZW50QnlJZCgncGRmRmlsZUlucHV0JykuY2xpY2soKSIKICAgICAgICAgICAgICAgICAgICAgICAgIG9uZHJhZ292ZXI9ImhhbmRsZURyYWdPdmVyKGV2ZW50LCB0aGlzKSIgCiAgICAgICAgICAgICAgICAgICAgICAgICBvbmRyYWdsZWF2ZT0iaGFuZGxlRHJhZ0xlYXZlKGV2ZW50LCB0aGlzKSIgCiAgICAgICAgICAgICAgICAgICAgICAgICBvbmRyb3A9ImhhbmRsZUZpbGVEcm9wKGV2ZW50LCAncGRmRmlsZUlucHV0JywgY29udmVydFBkZlRvV29yZCkiCiAgICAgICAgICAgICAgICAgICAgICAgICBjbGFzcz0iYm9yZGVyLTIgYm9yZGVyLWRhc2hlZCBib3JkZXItcmVkLTIwMCBob3Zlcjpib3JkZXItcHJpbWFyeS01MDAgYmctcHJpbWFyeS01MC80MCBob3ZlcjpiZy1wcmltYXJ5LTUwLzgwIHRyYW5zaXRpb24tYWxsIGR1cmF0aW9uLTIwMCByb3VuZGVkLTJ4bCBwLTggc206cC0xMiB0ZXh0LWNlbnRlciBjdXJzb3ItcG9pbnRlciBncm91cCI+CiAgICAgICAgICAgICAgICAgICAgICAgIDxkaXYgY2xhc3M9InctMTYgaC0xNiBiZy13aGl0ZSByb3VuZGVkLWZ1bGwgZmxleCBpdGVtcy1jZW50ZXIganVzdGlmeS1jZW50ZXIgbXgtYXV0byBtYi00IHRleHQtcHJpbWFyeS01MDAgc2hhZG93LXNtIGdyb3VwLWhvdmVyOnNjYWxlLTExMCB0cmFuc2l0aW9uLXRyYW5zZm9ybSI+CiAgICAgICAgICAgICAgICAgICAgICAgICAgICA8aSBjbGFzcz0iZmEtc29saWQgZmEtZmlsZS1wZGYgdGV4dC0zeGwiPjwvaT4KICAgICAgICAgICAgICAgICAgICAgICAgPC9kaXY+CiAgICAgICAgICAgICAgICAgICAgICAgIDxoMyBjbGFzcz0idGV4dC1sZyBmb250LWJvbGQgdGV4dC1ncmF5LTgwMCBtYi0xIj5QREYg4Kar4Ka+4KaH4KayIOCmqOCmv+CmsOCnjeCmrOCmvuCmmuCmqCDgppXgprDgp4Hgpqg8L2gzPgogICAgICAgICAgICAgICAgICAgICAgICA8cCBjbGFzcz0idGV4dC14cyBzbTp0ZXh0LXNtIHRleHQtZ3JheS01MDAgbWItMyI+4KaP4KaW4Ka+4Kao4KeHIOCmleCnjeCmsuCmv+CmlSDgppXgprDgp4Hgpqgg4KaF4Kal4Kas4Ka+IOCmquCmv+CmoeCmv+Cmj+CmqyDgpqvgpr7gpofgprIg4Kaf4KeH4Kao4KeHIOCmhuCmqOCngeCmqDwvcD4KICAgICAgICAgICAgICAgICAgICAgICAgPHNwYW4gY2xhc3M9ImlubGluZS1mbGV4IGl0ZW1zLWNlbnRlciBweC0zIHB5LTEgcm91bmRlZC1mdWxsIHRleHQteHMgZm9udC1tZWRpdW0gYmctcmVkLTEwMCB0ZXh0LXByaW1hcnktNzAwIj4KICAgICAgICAgICAgICAgICAgICAgICAgICAgIC5wZGYg4Ka44Kau4Kaw4KeN4Kal4Ka/4KakCiAgICAgICAgICAgICAgICAgICAgICAgIDwvc3Bhbj4KICAgICAgICAgICAgICAgICAgICA8L2Rpdj4KICAgICAgICAgICAgICAgICAgICA8aW5wdXQgdHlwZT0iZmlsZSIgaWQ9InBkZkZpbGVJbnB1dCIgYWNjZXB0PSIucGRmIiBjbGFzcz0iaGlkZGVuIiBvbmNoYW5nZT0iY29udmVydFBkZlRvV29yZCgpIj4KICAgICAgICAgICAgICAgIDwvZGl2PgoKICAgICAgICAgICAgICAgIDwhLS0gTG9hZGVyIENvbXBvbmVudCAtLT4KICAgICAgICAgICAgICAgIDxkaXYgaWQ9ImxvYWRlciIgY2xhc3M9ImhpZGRlbiBweS04IHRleHQtY2VudGVyIHNwYWNlLXktMyI+CiAgICAgICAgICAgICAgICAgICAgPGRpdiBjbGFzcz0iaW5saW5lLWZsZXggaXRlbXMtY2VudGVyIGp1c3RpZnktY2VudGVyIHctMTIgaC0xMiByb3VuZGVkLWZ1bGwgYmctcmVkLTUwIHRleHQtcHJpbWFyeS01MDAiPgogICAgICAgICAgICAgICAgICAgICAgICA8aSBjbGFzcz0iZmEtc29saWQgZmEtc3Bpbm5lciB0ZXh0LTJ4bCBhbmltYXRlLXNwaW4iPjwvaT4KICAgICAgICAgICAgICAgICAgICA8L2Rpdj4KICAgICAgICAgICAgICAgICAgICA8cCBpZD0ibG9hZGVyVGV4dCIgY2xhc3M9InRleHQtc20gZm9udC1zZW1pYm9sZCB0ZXh0LWdyYXktNzAwIj7gpqrgp43gprDgprjgp4fgprgg4Ka54Kaa4KeN4Kab4KeHLCDgpoXgpqjgp4Hgppfgp43gprDgprkg4KaV4Kaw4KeHIOCmheCmquCnh+CmleCnjeCmt+CmviDgppXgprDgp4HgpqguLi48L3A+CiAgICAgICAgICAgICAgICA8L2Rpdj4KCiAgICAgICAgICAgICAgICA8IS0tIEZpbGUgSW5mbyBCYXIgLS0+CiAgICAgICAgICAgICAgICA8ZGl2IGlkPSJmaWxlTWV0YSIgY2xhc3M9ImhpZGRlbiBtYi02IHAtNCBiZy1ncmF5LTUwIHJvdW5kZWQteGwgYm9yZGVyIGJvcmRlci1ncmF5LTIwMCBmbGV4IGZsZXgtd3JhcCBpdGVtcy1jZW50ZXIganVzdGlmeS1iZXR3ZWVuIGdhcC0zIHRleHQteHMgc206dGV4dC1zbSI+CiAgICAgICAgICAgICAgICAgICAgPGRpdiBjbGFzcz0iZmxleCBpdGVtcy1jZW50ZXIgZ2FwLTMiPgogICAgICAgICAgICAgICAgICAgICAgICA8aSBpZD0ibWV0YUljb24iIGNsYXNzPSJmYS1zb2xpZCB0ZXh0LXhsIj48L2k+CiAgICAgICAgICAgICAgICAgICAgICAgIDxkaXY+CiAgICAgICAgICAgICAgICAgICAgICAgICAgICA8ZGl2IGlkPSJtZXRhRmlsZU5hbWUiIGNsYXNzPSJmb250LWJvbGQgdGV4dC1ncmF5LTgwMCI+ZmlsZW5hbWUuZG9jeDwvZGl2PgogICAgICAgICAgICAgICAgICAgICAgICAgICAgPGRpdiBpZD0ibWV0YUZpbGVTaXplIiBjbGFzcz0idGV4dC1ncmF5LTUwMCI+MCBLQjwvZGl2PgogICAgICAgICAgICAgICAgICAgICAgICA8L2Rpdj4KICAgICAgICAgICAgICAgICAgICA8L2Rpdj4KICAgICAgICAgICAgICAgICAgICA8ZGl2IGlkPSJtZXRhRXh0cmEiIGNsYXNzPSJiZy13aGl0ZSBweC0zIHB5LTEgcm91bmRlZC1sZyBib3JkZXIgYm9yZGVyLWdyYXktMjAwIHRleHQtZ3JheS02MDAgZm9udC1tZWRpdW0iPjwvZGl2PgogICAgICAgICAgICAgICAgPC9kaXY+CgogICAgICAgICAgICAgICAgPCEtLSBQcmV2aWV3IEFyZWEgLS0+CiAgICAgICAgICAgICAgICA8ZGl2IGlkPSJwcmV2aWV3V3JhcHBlciIgY2xhc3M9ImhpZGRlbiBzcGFjZS15LTQiPgogICAgICAgICAgICAgICAgICAgIDxkaXYgY2xhc3M9ImZsZXggaXRlbXMtY2VudGVyIGp1c3RpZnktYmV0d2VlbiI+CiAgICAgICAgICAgICAgICAgICAgICAgIDxoNCBjbGFzcz0iZm9udC1ib2xkIHRleHQtZ3JheS04MDAgZmxleCBpdGVtcy1jZW50ZXIgZ2FwLTIgdGV4dC1zbSBzbTp0ZXh0LWJhc2UiPgogICAgICAgICAgICAgICAgICAgICAgICAgICAgPGkgY2xhc3M9ImZhLXNvbGlkIGZhLWV5ZSB0ZXh0LXByaW1hcnktNTAwIj48L2k+CiAgICAgICAgICAgICAgICAgICAgICAgICAgICA8c3Bhbj7gpqHgppXgp4Hgpq7gp4fgpqjgp43gpp8g4Kaq4KeN4Kaw4Ka/4Kat4Ka/4KaJIOCmkyDgpo/gpqHgpr/gpp/gprA8L3NwYW4+CiAgICAgICAgICAgICAgICAgICAgICAgIDwvaDQ+CiAgICAgICAgICAgICAgICAgICAgICAgIDxkaXYgY2xhc3M9ImZsZXggaXRlbXMtY2VudGVyIGdhcC0yIj4KICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxidXR0b24gb25jbGljaz0iY29weUV4dHJhY3RlZFRleHQoKSIgY2xhc3M9InB4LTMgcHktMS41IHJvdW5kZWQtbGcgYm9yZGVyIGJvcmRlci1ncmF5LTMwMCBob3ZlcjpiZy1ncmF5LTEwMCB0ZXh0LWdyYXktNzAwIGZvbnQtbWVkaXVtIHRleHQteHMgZmxleCBpdGVtcy1jZW50ZXIgZ2FwLTEuNSB0cmFuc2l0aW9uIj4KICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8aSBjbGFzcz0iZmEtc29saWQgZmEtY29weSI+PC9pPgogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxzcGFuPuCmleCmquCmvyDgppXgprDgp4Hgpqg8L3NwYW4+CiAgICAgICAgICAgICAgICAgICAgICAgICAgICA8L2J1dHRvbj4KICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxidXR0b24gb25jbGljaz0icmVzZXRDb252ZXJ0ZXIoKSIgY2xhc3M9InB4LTMgcHktMS41IHJvdW5kZWQtbGcgYm9yZGVyIGJvcmRlci1yZWQtMjAwIHRleHQtcmVkLTYwMCBob3ZlcjpiZy1yZWQtNTAgZm9udC1tZWRpdW0gdGV4dC14cyBmbGV4IGl0ZW1zLWNlbnRlciBnYXAtMS41IHRyYW5zaXRpb24iPgogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxpIGNsYXNzPSJmYS1zb2xpZCBmYS1yb3RhdGUtcmlnaHQiPjwvaT4KICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8c3Bhbj7gprDgpr/gprjgp4fgpp88L3NwYW4+CiAgICAgICAgICAgICAgICAgICAgICAgICAgICA8L2J1dHRvbj4KICAgICAgICAgICAgICAgICAgICAgICAgPC9kaXY+CiAgICAgICAgICAgICAgICAgICAgPC9kaXY+CgogICAgICAgICAgICAgICAgICAgIDwhLS0gRWRpdGFibGUgQ29udGVudCBQcmV2aWV3IENvbnRhaW5lciAtLT4KICAgICAgICAgICAgICAgICAgICA8ZGl2IGlkPSJvdXRwdXRQcmV2aWV3IiAKICAgICAgICAgICAgICAgICAgICAgICAgIGNvbnRlbnRlZGl0YWJsZT0idHJ1ZSIgCiAgICAgICAgICAgICAgICAgICAgICAgICBjbGFzcz0icHJldmlldy1jb250ZW50IHAtNiBiZy13aGl0ZSBib3JkZXIgYm9yZGVyLWdyYXktMzAwIHJvdW5kZWQteGwgbWF4LWgtWzUwMHB4XSBvdmVyZmxvdy15LWF1dG8gZm9jdXM6b3V0bGluZS1ub25lIGZvY3VzOnJpbmctMiBmb2N1czpyaW5nLXByaW1hcnktNTAwIHNoYWRvdy1pbm5lciI+CiAgICAgICAgICAgICAgICAgICAgPC9kaXY+CgogICAgICAgICAgICAgICAgICAgIDwhLS0gQWN0aW9uIEJhciAtLT4KICAgICAgICAgICAgICAgICAgICA8ZGl2IGlkPSJhY3Rpb25BcmVhIiBjbGFzcz0icHQtMiBmbGV4IGZsZXgtd3JhcCBpdGVtcy1jZW50ZXIganVzdGlmeS1lbmQgZ2FwLTMiPgogICAgICAgICAgICAgICAgICAgIDwvZGl2PgogICAgICAgICAgICAgICAgPC9kaXY+CgogICAgICAgICAgICA8L2Rpdj4KICAgICAgICA8L2Rpdj4KICAgIDwvbWFpbj4KCiAgICA8IS0tIEZvb3RlciAtLT4KICAgIDxmb290ZXIgY2xhc3M9ImJnLWdyYXktOTAwIHRleHQtZ3JheS00MDAgcHktNiBib3JkZXItdCBib3JkZXItZ3JheS04MDAgbXQtYXV0byI+CiAgICAgICAgPGRpdiBjbGFzcz0ibWF4LXctNHhsIG14LWF1dG8gcHgtNCB0ZXh0LWNlbnRlciB0ZXh0LXhzIHNtOnRleHQtc20gc3BhY2UteS0yIj4KICAgICAgICAgICAgPHA+JmNvcHk7IDIwMjYgQW1hcmthaiBQcm8gVG9vbHMgLSBBbGwgUmlnaHRzIFJlc2VydmVkLjwvcD4KICAgICAgICA8L2Rpdj4KICAgIDwvZm9vdGVyPgoKICAgIDxkaXYgaWQ9ImRvY3hSZW5kZXJIb3N0IiBhcmlhLWhpZGRlbj0idHJ1ZSI+PC9kaXY+CgogICAgPCEtLSBDb252ZXJzaW9uIExvZ2ljIFNjcmlwdCAtLT4KICAgIDxzY3JpcHQ+CiAgICAgICAgd2luZG93LmFkZEV2ZW50TGlzdGVuZXIoJ2xvYWQnLCAoKSA9PiB7CiAgICAgICAgICAgIGlmICh3aW5kb3cucGRmanNMaWIpIHsKICAgICAgICAgICAgICAgIHBkZmpzTGliLkdsb2JhbFdvcmtlck9wdGlvbnMud29ya2VyU3JjID0gJ2h0dHBzOi8vY2RuanMuY2xvdWRmbGFyZS5jb20vYWpheC9saWJzL3BkZi5qcy8zLjExLjE3NC9wZGYud29ya2VyLm1pbi5qcyc7CiAgICAgICAgICAgIH0KICAgICAgICB9KTsKCiAgICAgICAgbGV0IGN1cnJlbnRUYWIgPSAnd29yZFRvUGRmJzsKICAgICAgICBsZXQgY3VycmVudEZpbGVOYW1lID0gJyc7CgogICAgICAgIGZ1bmN0aW9uIHN3aXRjaFRhYih0YWIpIHsKICAgICAgICAgICAgY3VycmVudFRhYiA9IHRhYjsKICAgICAgICAgICAgY29uc3Qgd29yZFRhYkJ0biA9IGRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCd0YWItd29yZFRvUGRmJyk7CiAgICAgICAgICAgIGNvbnN0IHBkZlRhYkJ0biA9IGRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCd0YWItcGRmVG9Xb3JkJyk7CiAgICAgICAgICAgIGNvbnN0IHdvcmRTZWN0aW9uID0gZG9jdW1lbnQuZ2V0RWxlbWVudEJ5SWQoJ3dvcmRUb1BkZlNlY3Rpb24nKTsKICAgICAgICAgICAgY29uc3QgcGRmU2VjdGlvbiA9IGRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCdwZGZUb1dvcmRTZWN0aW9uJyk7CgogICAgICAgICAgICByZXNldENvbnZlcnRlcigpOwoKICAgICAgICAgICAgaWYgKHRhYiA9PT0gJ3dvcmRUb1BkZicpIHsKICAgICAgICAgICAgICAgIHdvcmRUYWJCdG4uY2xhc3NOYW1lID0gImZsZXgtMSBweS0zIHB4LTQgcm91bmRlZC14bCBmb250LXNlbWlib2xkIHRleHQtc20gc206dGV4dC1iYXNlIGZsZXggaXRlbXMtY2VudGVyIGp1c3RpZnktY2VudGVyIGdhcC0yIHRyYW5zaXRpb24tYWxsIGR1cmF0aW9uLTIwMCBiZy13aGl0ZSB0ZXh0LXByaW1hcnktNTAwIHNoYWRvdy1zbSBib3JkZXIgYm9yZGVyLWdyYXktMTAwIjsKICAgICAgICAgICAgICAgIHBkZlRhYkJ0bi5jbGFzc05hbWUgPSAiZmxleC0xIHB5LTMgcHgtNCByb3VuZGVkLXhsIGZvbnQtc2VtaWJvbGQgdGV4dC1zbSBzbTp0ZXh0LWJhc2UgZmxleCBpdGVtcy1jZW50ZXIganVzdGlmeS1jZW50ZXIgZ2FwLTIgdHJhbnNpdGlvbi1hbGwgZHVyYXRpb24tMjAwIHRleHQtZ3JheS02MDAgaG92ZXI6dGV4dC1ncmF5LTkwMCBob3ZlcjpiZy13aGl0ZS82MCI7CiAgICAgICAgICAgICAgICB3b3JkU2VjdGlvbi5jbGFzc0xpc3QucmVtb3ZlKCdoaWRkZW4nKTsKICAgICAgICAgICAgICAgIHBkZlNlY3Rpb24uY2xhc3NMaXN0LmFkZCgnaGlkZGVuJyk7CiAgICAgICAgICAgIH0gZWxzZSB7CiAgICAgICAgICAgICAgICBwZGZUYWJCdG4uY2xhc3NOYW1lID0gImZsZXgtMSBweS0zIHB4LTQgcm91bmRlZC14bCBmb250LXNlbWlib2xkIHRleHQtc20gc206dGV4dC1iYXNlIGZsZXggaXRlbXMtY2VudGVyIGp1c3RpZnktY2VudGVyIGdhcC0yIHRyYW5zaXRpb24tYWxsIGR1cmF0aW9uLTIwMCBiZy13aGl0ZSB0ZXh0LXByaW1hcnktNTAwIHNoYWRvdy1zbSBib3JkZXIgYm9yZGVyLWdyYXktMTAwIjsKICAgICAgICAgICAgICAgIHdvcmRUYWJCdG4uY2xhc3NOYW1lID0gImZsZXgtMSBweS0zIHB4LTQgcm91bmRlZC14bCBmb250LXNlbWlib2xkIHRleHQtc20gc206dGV4dC1iYXNlIGZsZXggaXRlbXMtY2VudGVyIGp1c3RpZnktY2VudGVyIGdhcC0yIHRyYW5zaXRpb24tYWxsIGR1cmF0aW9uLTIwMCB0ZXh0LWdyYXktNjAwIGhvdmVyOnRleHQtZ3JheS05MDAgaG92ZXI6Ymctd2hpdGUvNjAiOwogICAgICAgICAgICAgICAgcGRmU2VjdGlvbi5jbGFzc0xpc3QucmVtb3ZlKCdoaWRkZW4nKTsKICAgICAgICAgICAgICAgIHdvcmRTZWN0aW9uLmNsYXNzTGlzdC5hZGQoJ2hpZGRlbicpOwogICAgICAgICAgICB9CiAgICAgICAgfQoKICAgICAgICBmdW5jdGlvbiBoYW5kbGVEcmFnT3ZlcihlLCBlbGVtZW50KSB7CiAgICAgICAgICAgIGUucHJldmVudERlZmF1bHQoKTsKICAgICAgICAgICAgZWxlbWVudC5jbGFzc0xpc3QuYWRkKCdiZy1yZWQtMTAwLzUwJywgJ2JvcmRlci1wcmltYXJ5LTUwMCcpOwogICAgICAgIH0KCiAgICAgICAgZnVuY3Rpb24gaGFuZGxlRHJhZ0xlYXZlKGUsIGVsZW1lbnQpIHsKICAgICAgICAgICAgZS5wcmV2ZW50RGVmYXVsdCgpOwogICAgICAgICAgICBlbGVtZW50LmNsYXNzTGlzdC5yZW1vdmUoJ2JnLXJlZC0xMDAvNTAnLCAnYm9yZGVyLXByaW1hcnktNTAwJyk7CiAgICAgICAgfQoKICAgICAgICBmdW5jdGlvbiBoYW5kbGVGaWxlRHJvcChlLCBpbnB1dElkLCBjYWxsYmFjaykgewogICAgICAgICAgICBlLnByZXZlbnREZWZhdWx0KCk7CiAgICAgICAgICAgIGNvbnN0IGZpbGVzID0gZS5kYXRhVHJhbnNmZXIuZmlsZXM7CiAgICAgICAgICAgIGlmIChmaWxlcy5sZW5ndGggPiAwKSB7CiAgICAgICAgICAgICAgICBjb25zdCBpbnB1dCA9IGRvY3VtZW50LmdldEVsZW1lbnRCeUlkKGlucHV0SWQpOwogICAgICAgICAgICAgICAgaW5wdXQuZmlsZXMgPSBmaWxlczsKICAgICAgICAgICAgICAgIGNhbGxiYWNrKCk7CiAgICAgICAgICAgIH0KICAgICAgICB9CgogICAgICAgIGZ1bmN0aW9uIHNob3dUb2FzdChtZXNzYWdlLCB0eXBlID0gJ3N1Y2Nlc3MnKSB7CiAgICAgICAgICAgIGNvbnN0IHRvYXN0ID0gZG9jdW1lbnQuZ2V0RWxlbWVudEJ5SWQoJ3RvYXN0Jyk7CiAgICAgICAgICAgIHRvYXN0LmNsYXNzTGlzdC5yZW1vdmUoJ2hpZGRlbicsICdiZy1yZWQtMTAwJywgJ3RleHQtcmVkLTcwMCcsICdiZy1lbWVyYWxkLTEwMCcsICd0ZXh0LWVtZXJhbGQtNzAwJyk7CiAgICAgICAgICAgIAogICAgICAgICAgICBpZiAodHlwZSA9PT0gJ2Vycm9yJykgewogICAgICAgICAgICAgICAgdG9hc3QuY2xhc3NMaXN0LmFkZCgnYmctcmVkLTEwMCcsICd0ZXh0LXJlZC03MDAnKTsKICAgICAgICAgICAgICAgIHRvYXN0LmlubmVySFRNTCA9IGA8aSBjbGFzcz0iZmEtc29saWQgZmEtY2lyY2xlLWV4Y2xhbWF0aW9uIj48L2k+IDxzcGFuPiR7bWVzc2FnZX08L3NwYW4+YDsKICAgICAgICAgICAgfSBlbHNlIHsKICAgICAgICAgICAgICAgIHRvYXN0LmNsYXNzTGlzdC5hZGQoJ2JnLWVtZXJhbGQtMTAwJywgJ3RleHQtZW1lcmFsZC03MDAnKTsKICAgICAgICAgICAgICAgIHRvYXN0LmlubmVySFRNTCA9IGA8aSBjbGFzcz0iZmEtc29saWQgZmEtY2lyY2xlLWNoZWNrIj48L2k+IDxzcGFuPiR7bWVzc2FnZX08L3NwYW4+YDsKICAgICAgICAgICAgfQogICAgICAgIH0KCiAgICAgICAgZnVuY3Rpb24gc2hvd0xvYWRlcih0ZXh0KSB7CiAgICAgICAgICAgIGRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCdsb2FkZXInKS5jbGFzc0xpc3QucmVtb3ZlKCdoaWRkZW4nKTsKICAgICAgICAgICAgZG9jdW1lbnQuZ2V0RWxlbWVudEJ5SWQoJ2xvYWRlclRleHQnKS5pbm5lclRleHQgPSB0ZXh0OwogICAgICAgIH0KCiAgICAgICAgZnVuY3Rpb24gaGlkZUxvYWRlcigpIHsKICAgICAgICAgICAgZG9jdW1lbnQuZ2V0RWxlbWVudEJ5SWQoJ2xvYWRlcicpLmNsYXNzTGlzdC5hZGQoJ2hpZGRlbicpOwogICAgICAgIH0KCiAgICAgICAgZnVuY3Rpb24gZm9ybWF0Qnl0ZXMoYnl0ZXMsIGRlY2ltYWxzID0gMikgewogICAgICAgICAgICBpZiAoYnl0ZXMgPT09IDApIHJldHVybiAnMCBCeXRlcyc7CiAgICAgICAgICAgIGNvbnN0IGsgPSAxMDI0OwogICAgICAgICAgICBjb25zdCBzaXplcyA9IFsnQnl0ZXMnLCAnS0InLCAnTUInLCAnR0InXTsKICAgICAgICAgICAgY29uc3QgaSA9IE1hdGguZmxvb3IoTWF0aC5sb2coYnl0ZXMpIC8gTWF0aC5sb2coaykpOwogICAgICAgICAgICByZXR1cm4gcGFyc2VGbG9hdCgoYnl0ZXMgLyBNYXRoLnBvdyhrLCBpKSkudG9GaXhlZChkZWNpbWFscykpICsgJyAnICsgc2l6ZXNbaV07CiAgICAgICAgfQoKICAgICAgICBmdW5jdGlvbiByZXNldENvbnZlcnRlcigpIHsKICAgICAgICAgICAgZG9jdW1lbnQuZ2V0RWxlbWVudEJ5SWQoJ3dvcmRGaWxlSW5wdXQnKS52YWx1ZSA9ICcnOwogICAgICAgICAgICBkb2N1bWVudC5nZXRFbGVtZW50QnlJZCgncGRmRmlsZUlucHV0JykudmFsdWUgPSAnJzsKICAgICAgICAgICAgZG9jdW1lbnQuZ2V0RWxlbWVudEJ5SWQoJ3ByZXZpZXdXcmFwcGVyJykuY2xhc3NMaXN0LmFkZCgnaGlkZGVuJyk7CiAgICAgICAgICAgIGRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCdmaWxlTWV0YScpLmNsYXNzTGlzdC5hZGQoJ2hpZGRlbicpOwogICAgICAgICAgICBkb2N1bWVudC5nZXRFbGVtZW50QnlJZCgndG9hc3QnKS5jbGFzc0xpc3QuYWRkKCdoaWRkZW4nKTsKICAgICAgICAgICAgZG9jdW1lbnQuZ2V0RWxlbWVudEJ5SWQoJ2FjdGlvbkFyZWEnKS5pbm5lckhUTUwgPSAnJzsKICAgICAgICAgICAgZG9jdW1lbnQuZ2V0RWxlbWVudEJ5SWQoJ291dHB1dFByZXZpZXcnKS5pbm5lckhUTUwgPSAnJzsKICAgICAgICAgICAgd2luZG93Ll9fYW1hcmthalBkZlBhZ2VzID0gbnVsbDsKICAgICAgICAgICAgZG9jdW1lbnQuZ2V0RWxlbWVudEJ5SWQoJ291dHB1dFByZXZpZXcnKS5jb250ZW50RWRpdGFibGUgPSAndHJ1ZSc7CiAgICAgICAgICAgIGhpZGVMb2FkZXIoKTsKICAgICAgICB9CgogICAgICAgIC8vIFdPUkQgLT4gUERGOiB1c2UgRE9DWCByZW5kZXJlciB0byByZXRhaW4gc3R5bGVzLCB0YWJsZXMsIGltYWdlcyBhbmQgcGFnZSBicmVha3MuCiAgICAgICAgYXN5bmMgZnVuY3Rpb24gY29udmVydFdvcmRUb1BkZigpIHsKICAgICAgICAgICAgY29uc3QgaW5wdXQgPSBkb2N1bWVudC5nZXRFbGVtZW50QnlJZCgnd29yZEZpbGVJbnB1dCcpOwogICAgICAgICAgICBpZiAoIWlucHV0LmZpbGVzIHx8ICFpbnB1dC5maWxlcy5sZW5ndGgpIHJldHVybjsKICAgICAgICAgICAgY29uc3QgZmlsZSA9IGlucHV0LmZpbGVzWzBdOwogICAgICAgICAgICBjdXJyZW50RmlsZU5hbWUgPSBmaWxlLm5hbWUucmVwbGFjZSgvXC5bXi8uXSskLywgIiIpOwogICAgICAgICAgICBzaG93TG9hZGVyKCJXb3JkLeCmj+CmsCDgpq7gp4LgprIgZm9ybWF0dGluZywg4Kab4Kas4Ka/IOCmkyDgpp/gp4fgpqzgpr/gprIg4Kaq4KeN4Kaw4Ka44KeN4Kak4KeB4KakIOCmueCmmuCnjeCmm+Cnhy4uLiIpOwogICAgICAgICAgICBkb2N1bWVudC5nZXRFbGVtZW50QnlJZCgnbWV0YUljb24nKS5jbGFzc05hbWUgPSAiZmEtc29saWQgZmEtZmlsZS13b3JkIHRleHQtYmx1ZS02MDAiOwogICAgICAgICAgICBkb2N1bWVudC5nZXRFbGVtZW50QnlJZCgnbWV0YUZpbGVOYW1lJykuaW5uZXJUZXh0ID0gZmlsZS5uYW1lOwogICAgICAgICAgICBkb2N1bWVudC5nZXRFbGVtZW50QnlJZCgnbWV0YUZpbGVTaXplJykuaW5uZXJUZXh0ID0gZm9ybWF0Qnl0ZXMoZmlsZS5zaXplKTsKICAgICAgICAgICAgZG9jdW1lbnQuZ2V0RWxlbWVudEJ5SWQoJ21ldGFFeHRyYScpLmlubmVyVGV4dCA9ICJET0NYIOKAoiBMYXlvdXQtYXdhcmUiOwogICAgICAgICAgICBkb2N1bWVudC5nZXRFbGVtZW50QnlJZCgnZmlsZU1ldGEnKS5jbGFzc0xpc3QucmVtb3ZlKCdoaWRkZW4nKTsKCiAgICAgICAgICAgIHRyeSB7CiAgICAgICAgICAgICAgICBpZiAoIXdpbmRvdy5kb2N4IHx8IHR5cGVvZiB3aW5kb3cuZG9jeC5yZW5kZXJBc3luYyAhPT0gImZ1bmN0aW9uIikgewogICAgICAgICAgICAgICAgICAgIHRocm93IG5ldyBFcnJvcigiRE9DWCByZW5kZXJlciDgprLgp4vgpqEg4Ka54Kef4Kao4Ka/4KWkIOCmh+CmqOCnjeCmn+CmvuCmsOCmqOCnh+CmnyDgpprgpr7gprLgp4Eg4KaV4Kaw4KeHIOCmquCnh+CmnCBSZWxvYWQg4KaV4Kaw4KeB4Kao4KWkIik7CiAgICAgICAgICAgICAgICB9CiAgICAgICAgICAgICAgICBjb25zdCBob3N0ID0gZG9jdW1lbnQuZ2V0RWxlbWVudEJ5SWQoJ2RvY3hSZW5kZXJIb3N0Jyk7CiAgICAgICAgICAgICAgICBob3N0LmlubmVySFRNTCA9ICIiOwogICAgICAgICAgICAgICAgYXdhaXQgZG9jeC5yZW5kZXJBc3luYyhhd2FpdCBmaWxlLmFycmF5QnVmZmVyKCksIGhvc3QsIG51bGwsIHsKICAgICAgICAgICAgICAgICAgICBjbGFzc05hbWU6ICJkb2N4IiwKICAgICAgICAgICAgICAgICAgICBpbldyYXBwZXI6IHRydWUsCiAgICAgICAgICAgICAgICAgICAgaWdub3JlV2lkdGg6IGZhbHNlLAogICAgICAgICAgICAgICAgICAgIGlnbm9yZUhlaWdodDogZmFsc2UsCiAgICAgICAgICAgICAgICAgICAgaWdub3JlRm9udHM6IGZhbHNlLAogICAgICAgICAgICAgICAgICAgIGJyZWFrUGFnZXM6IHRydWUsCiAgICAgICAgICAgICAgICAgICAgaWdub3JlTGFzdFJlbmRlcmVkUGFnZUJyZWFrOiBmYWxzZSwKICAgICAgICAgICAgICAgICAgICBleHBlcmltZW50YWw6IHRydWUsCiAgICAgICAgICAgICAgICAgICAgdHJpbVhtbERlY2xhcmF0aW9uOiB0cnVlLAogICAgICAgICAgICAgICAgICAgIHVzZUJhc2U2NFVSTDogdHJ1ZQogICAgICAgICAgICAgICAgfSk7CgogICAgICAgICAgICAgICAgY29uc3QgcHJldmlldyA9IGRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCdvdXRwdXRQcmV2aWV3Jyk7CiAgICAgICAgICAgICAgICBwcmV2aWV3LmlubmVySFRNTCA9ICIiOwogICAgICAgICAgICAgICAgY29uc3QgcmVuZGVyZWQgPSBob3N0LnF1ZXJ5U2VsZWN0b3IoJy5kb2N4LXdyYXBwZXInKSB8fCBob3N0OwogICAgICAgICAgICAgICAgY29uc3QgcmVuZGVyZWRDbG9uZSA9IHJlbmRlcmVkLmNsb25lTm9kZSh0cnVlKTsKICAgICAgICAgICAgICAgIHJlbmRlcmVkQ2xvbmUuY2xhc3NMaXN0LmFkZCgnYW1hcmthai1hNC1leHBvcnQnKTsKICAgICAgICAgICAgICAgIHByZXZpZXcuYXBwZW5kQ2hpbGQocmVuZGVyZWRDbG9uZSk7CiAgICAgICAgICAgICAgICBwcmV2aWV3LmNvbnRlbnRFZGl0YWJsZSA9ICJ0cnVlIjsKICAgICAgICAgICAgICAgIGRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCdwcmV2aWV3V3JhcHBlcicpLmNsYXNzTGlzdC5yZW1vdmUoJ2hpZGRlbicpOwogICAgICAgICAgICAgICAgZG9jdW1lbnQuZ2V0RWxlbWVudEJ5SWQoJ2FjdGlvbkFyZWEnKS5pbm5lckhUTUwgPSBgCiAgICAgICAgICAgICAgICAgICAgPGJ1dHRvbiBvbmNsaWNrPSJkb3dubG9hZFBkZkZpbGUoKSIgY2xhc3M9InctZnVsbCBzbTp3LWF1dG8gcHgtNiBweS0zIGJnLXByaW1hcnktNTAwIGhvdmVyOmJnLXByaW1hcnktNjAwIHRleHQtd2hpdGUgZm9udC1ib2xkIHJvdW5kZWQteGwgc2hhZG93LWxnIHRyYW5zaXRpb24gZmxleCBpdGVtcy1jZW50ZXIganVzdGlmeS1jZW50ZXIgZ2FwLTIiPgogICAgICAgICAgICAgICAgICAgICAgICA8aSBjbGFzcz0iZmEtc29saWQgZmEtZmlsZS1wZGYiPjwvaT48c3Bhbj5QREYg4Kah4Ka+4KaJ4Kao4Kay4KeL4KahIOCmleCmsOCngeCmqDwvc3Bhbj4KICAgICAgICAgICAgICAgICAgICA8L2J1dHRvbj5gOwogICAgICAgICAgICAgICAgaGlkZUxvYWRlcigpOwogICAgICAgICAgICAgICAgc2hvd1RvYXN0KCJBNCBQb3J0cmFpdCBQREYg4Kaq4KeN4Kaw4Ka44KeN4Kak4KeB4Kak4KWkIOCmquCng+Cmt+CnjeCmoOCmviwg4Kab4Kas4Ka/IOCmkyDgpp/gp4fgpqzgpr/gprLgp4fgprAgbGF5b3V0IOCmr+CmpOCmn+CmviDgprjgpq7gp43gpq3gpqwg4Kaw4Ka+4KaW4Ka+IOCmueCnn+Cnh+Cmm+Cnhzsg4Kah4Ka+4KaJ4Kao4Kay4KeL4KahIOCmleCmsOCmviBQREYg4Kav4Ka+4Kaa4Ka+4KaHIOCmleCmsOCngeCmqOClpCIpOwogICAgICAgICAgICB9IGNhdGNoIChlcnIpIHsKICAgICAgICAgICAgICAgIGhpZGVMb2FkZXIoKTsKICAgICAgICAgICAgICAgIHNob3dUb2FzdCgiV29yZCDgpqvgpr7gpofgprIg4Kaq4KeN4Kaw4Ka44KeH4Ka4IOCmleCmsOCmviDgpq/gpr7gp5/gpqjgpr86ICIgKyAoZXJyLm1lc3NhZ2UgfHwgZXJyKSwgImVycm9yIik7CiAgICAgICAgICAgIH0KICAgICAgICB9CgogICAgICAgIC8vIFdPUkQgLT4gUERGOiByZW5kZXIgZWFjaCBET0NYIHBhZ2Ugc2VwYXJhdGVseSB0byBhdm9pZCByZWZsb3dpbmcgdGhlIGVudGlyZSBkb2N1bWVudC4KICAgICAgICAvLyBCcm93c2VyIHJlbmRlcmluZyBpcyBiZXN0LWVmZm9ydDsgZXhhY3QgV29yZCBwYWdpbmF0aW9uIHJlcXVpcmVzIE1pY3Jvc29mdCBXb3JkL0xpYnJlT2ZmaWNlLgogICAgICAgIGFzeW5jIGZ1bmN0aW9uIGRvd25sb2FkUGRmRmlsZSgpIHsKICAgICAgICAgICAgY29uc3QgcHJldmlldyA9IGRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCdvdXRwdXRQcmV2aWV3Jyk7CiAgICAgICAgICAgIGlmICghcHJldmlldyB8fCAhcHJldmlldy5pbm5lckhUTUwudHJpbSgpKSB7CiAgICAgICAgICAgICAgICBzaG93VG9hc3QoIuCmoeCmvuCmieCmqOCmsuCni+CmoSDgppXgprDgpr7gprAg4Kau4Kak4KeLIOCmleCmqOCnjeCmn+Cnh+CmqOCnjeCmnyDgpqjgp4fgpofgpaQiLCAiZXJyb3IiKTsgcmV0dXJuOwogICAgICAgICAgICB9CiAgICAgICAgICAgIHNob3dMb2FkZXIoIuCmquCnjeCmsOCmpOCmv+Cmn+CmvyBXb3JkIOCmquCng+Cmt+CnjeCmoOCmviDgpobgprLgpr7gpqbgpr7gpq3gpr7gpqzgp4cgUERGLeCmjyDgpqjgp4fgppPgp5/gpr4g4Ka54Kaa4KeN4Kab4KeHLi4uIik7CiAgICAgICAgICAgIHRyeSB7CiAgICAgICAgICAgICAgICBpZiAoIXdpbmRvdy5odG1sMnBkZikgdGhyb3cgbmV3IEVycm9yKCJQREYg4Kay4Ka+4KaH4Kas4KeN4Kaw4KeH4Kaw4Ka/IOCmsuCni+CmoSDgprngp5/gpqjgpr/gpaQg4KaH4Kao4KeN4Kaf4Ka+4Kaw4Kao4KeH4KafIOCmmuCmvuCmsuCngSDgppXgprDgp4cgUmVsb2FkIOCmleCmsOCngeCmqOClpCIpOwogICAgICAgICAgICAgICAgY29uc3QgZG9jeFBhZ2VzID0gQXJyYXkuZnJvbShwcmV2aWV3LnF1ZXJ5U2VsZWN0b3JBbGwoIi5kb2N4IikpOwogICAgICAgICAgICAgICAgY29uc3QgdGFyZ2V0ID0gZG9jeFBhZ2VzLmxlbmd0aCA/IHByZXZpZXcucXVlcnlTZWxlY3RvcigiLmRvY3gtd3JhcHBlciIpIHx8IHByZXZpZXcgOiBwcmV2aWV3OwogICAgICAgICAgICAgICAgY29uc3Qgb3B0ID0gewogICAgICAgICAgICAgICAgICAgIG1hcmdpbjogMCwKICAgICAgICAgICAgICAgICAgICBmaWxlbmFtZTogKGN1cnJlbnRGaWxlTmFtZSB8fCAiZG9jdW1lbnQiKSArICIucGRmIiwKICAgICAgICAgICAgICAgICAgICBpbWFnZTogeyB0eXBlOiAianBlZyIsIHF1YWxpdHk6IDEgfSwKICAgICAgICAgICAgICAgICAgICBodG1sMmNhbnZhczogewogICAgICAgICAgICAgICAgICAgICAgICBzY2FsZTogMywgdXNlQ09SUzogdHJ1ZSwgYWxsb3dUYWludDogZmFsc2UsCiAgICAgICAgICAgICAgICAgICAgICAgIGxldHRlclJlbmRlcmluZzogdHJ1ZSwgbG9nZ2luZzogZmFsc2UsIGJhY2tncm91bmRDb2xvcjogIiNmZmZmZmYiLAogICAgICAgICAgICAgICAgICAgICAgICBzY3JvbGxYOiAwLCBzY3JvbGxZOiAwLCB3aW5kb3dXaWR0aDogTWF0aC5tYXgodGFyZ2V0LnNjcm9sbFdpZHRoIHx8IDAsIDkwMCkKICAgICAgICAgICAgICAgICAgICB9LAogICAgICAgICAgICAgICAgICAgIGpzUERGOiB7IHVuaXQ6ICJtbSIsIGZvcm1hdDogImE0Iiwgb3JpZW50YXRpb246ICJwb3J0cmFpdCIsIGNvbXByZXNzOiB0cnVlIH0sCiAgICAgICAgICAgICAgICAgICAgcGFnZWJyZWFrOiB7IG1vZGU6IFsiY3NzIiwgImxlZ2FjeSJdLCBhdm9pZDogWyJpbWciLCAidHIiLCAidGFibGUiXSB9CiAgICAgICAgICAgICAgICB9OwogICAgICAgICAgICAgICAgYXdhaXQgaHRtbDJwZGYoKS5zZXQob3B0KS5mcm9tKHRhcmdldCkuc2F2ZSgpOwogICAgICAgICAgICAgICAgaGlkZUxvYWRlcigpOwogICAgICAgICAgICAgICAgc2hvd1RvYXN0KCJQREYg4Kak4KeI4Kaw4Ka/IOCmueCnn+Cnh+Cmm+Cnh+ClpCBXb3JkLeCmj+CmsCDgppzgpp/gpr/gprIgbGF5b3V0LCBjdXN0b20gcGFnZSBzaXplIOCmrOCmviBleGFjdCBwYWdpbmF0aW9uIOCmueCmsuCnhyBNaWNyb3NvZnQgV29yZC9MaWJyZU9mZmljZSDgpqXgp4fgppXgp4cgU2F2ZSBhcyBQREYg4Ka44Kas4Kaa4KeH4Kef4KeHIOCmqOCmv+CmsOCnjeCmreCngeCmsuClpCIpOwogICAgICAgICAgICB9IGNhdGNoIChlcnIpIHsKICAgICAgICAgICAgICAgIGhpZGVMb2FkZXIoKTsKICAgICAgICAgICAgICAgIHNob3dUb2FzdCgiUERGIOCmoeCmvuCmieCmqOCmsuCni+CmoeCnhyDgprjgpq7gprjgp43gpq/gpr46ICIgKyAoZXJyLm1lc3NhZ2UgfHwgZXJyKSwgImVycm9yIik7CiAgICAgICAgICAgIH0KICAgICAgICB9CgogICAgICAgIC8vIFBERiAtPiBXb3JkOiByZW5kZXIgZXZlcnkgUERGIHBhZ2UgYXMgYSBoaWdoLXJlc29sdXRpb24gaW1hZ2UuCiAgICAgICAgLy8gVGhpcyBwcmVzZXJ2ZXMgdmlzdWFsIGxheW91dCwgYnV0IHBhZ2UgdGV4dCBpcyBub3QgaW5kaXZpZHVhbGx5IGVkaXRhYmxlIGluIFdvcmQuCiAgICAgICAgYXN5bmMgZnVuY3Rpb24gY29udmVydFBkZlRvV29yZCgpIHsKICAgICAgICAgICAgY29uc3QgaW5wdXQgPSBkb2N1bWVudC5nZXRFbGVtZW50QnlJZCgncGRmRmlsZUlucHV0Jyk7CiAgICAgICAgICAgIGlmICghaW5wdXQuZmlsZXMgfHwgIWlucHV0LmZpbGVzLmxlbmd0aCkgcmV0dXJuOwogICAgICAgICAgICBjb25zdCBmaWxlID0gaW5wdXQuZmlsZXNbMF07CiAgICAgICAgICAgIGN1cnJlbnRGaWxlTmFtZSA9IGZpbGUubmFtZS5yZXBsYWNlKC9cLlteLy5dKyQvLCAiIik7CiAgICAgICAgICAgIHNob3dMb2FkZXIoIlBERi3gpo/gprAg4Kaq4KeN4Kaw4Kak4Ka/4Kaf4Ka/IOCmquCng+Cmt+CnjeCmoOCmviDgpongpprgp43gppog4Kaw4KeH4Kac4KeL4Kay4Ka/4KaJ4Ka24Kao4KeHIOCmsOCnh+CmqOCnjeCmoeCmvuCmsCDgprngpprgp43gppvgp4cuLi4iKTsKICAgICAgICAgICAgZG9jdW1lbnQuZ2V0RWxlbWVudEJ5SWQoJ21ldGFJY29uJykuY2xhc3NOYW1lID0gImZhLXNvbGlkIGZhLWZpbGUtcGRmIHRleHQtcmVkLTYwMCI7CiAgICAgICAgICAgIGRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCdtZXRhRmlsZU5hbWUnKS5pbm5lclRleHQgPSBmaWxlLm5hbWU7CiAgICAgICAgICAgIGRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCdtZXRhRmlsZVNpemUnKS5pbm5lclRleHQgPSBmb3JtYXRCeXRlcyhmaWxlLnNpemUpOwoKICAgICAgICAgICAgdHJ5IHsKICAgICAgICAgICAgICAgIGlmICghd2luZG93LnBkZmpzTGliKSB0aHJvdyBuZXcgRXJyb3IoIlBERi5qcyDgprLgpr7gpofgpqzgp43gprDgp4fgprDgpr8g4Kay4KeL4KahIOCmueCnn+CmqOCmv+ClpCDgpofgpqjgp43gpp/gpr7gprDgpqjgp4fgpp8g4Kaa4Ka+4Kay4KeBIOCmleCmsOCnhyBSZWxvYWQg4KaV4Kaw4KeB4Kao4KWkIik7CiAgICAgICAgICAgICAgICBjb25zdCBwZGYgPSBhd2FpdCBwZGZqc0xpYi5nZXREb2N1bWVudCh7IGRhdGE6IG5ldyBVaW50OEFycmF5KGF3YWl0IGZpbGUuYXJyYXlCdWZmZXIoKSkgfSkucHJvbWlzZTsKICAgICAgICAgICAgICAgIGRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCdtZXRhRXh0cmEnKS5pbm5lclRleHQgPSBgJHtwZGYubnVtUGFnZXN9IFBhZ2UocylgOwogICAgICAgICAgICAgICAgZG9jdW1lbnQuZ2V0RWxlbWVudEJ5SWQoJ2ZpbGVNZXRhJykuY2xhc3NMaXN0LnJlbW92ZSgnaGlkZGVuJyk7CgogICAgICAgICAgICAgICAgY29uc3QgcHJldmlldyA9IGRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCdvdXRwdXRQcmV2aWV3Jyk7CiAgICAgICAgICAgICAgICBwcmV2aWV3LmlubmVySFRNTCA9ICIiOwogICAgICAgICAgICAgICAgcHJldmlldy5jb250ZW50RWRpdGFibGUgPSAiZmFsc2UiOwogICAgICAgICAgICAgICAgY29uc3QgcGFnZXMgPSBbXTsKCiAgICAgICAgICAgICAgICBmb3IgKGxldCBpID0gMTsgaSA8PSBwZGYubnVtUGFnZXM7IGkrKykgewogICAgICAgICAgICAgICAgICAgIGRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCdsb2FkZXJUZXh0JykuaW5uZXJUZXh0ID0gYOCmquCng+Cmt+CnjeCmoOCmviAke2l9LyR7cGRmLm51bVBhZ2VzfSDgprDgp4fgpqjgp43gpqHgpr7gprAg4Ka54Kaa4KeN4Kab4KeHLi4uYDsKICAgICAgICAgICAgICAgICAgICBjb25zdCBwYWdlID0gYXdhaXQgcGRmLmdldFBhZ2UoaSk7CiAgICAgICAgICAgICAgICAgICAgY29uc3Qgb3JpZ2luYWxWaWV3cG9ydCA9IHBhZ2UuZ2V0Vmlld3BvcnQoeyBzY2FsZTogMSB9KTsKICAgICAgICAgICAgICAgICAgICBjb25zdCB2aWV3cG9ydCA9IHBhZ2UuZ2V0Vmlld3BvcnQoeyBzY2FsZTogMyB9KTsKICAgICAgICAgICAgICAgICAgICBjb25zdCBjYW52YXMgPSBkb2N1bWVudC5jcmVhdGVFbGVtZW50KCJjYW52YXMiKTsKICAgICAgICAgICAgICAgICAgICBjYW52YXMud2lkdGggPSBNYXRoLmNlaWwodmlld3BvcnQud2lkdGgpOwogICAgICAgICAgICAgICAgICAgIGNhbnZhcy5oZWlnaHQgPSBNYXRoLmNlaWwodmlld3BvcnQuaGVpZ2h0KTsKICAgICAgICAgICAgICAgICAgICBjb25zdCBjdHggPSBjYW52YXMuZ2V0Q29udGV4dCgiMmQiLCB7IGFscGhhOiBmYWxzZSB9KTsKICAgICAgICAgICAgICAgICAgICBjdHguZmlsbFN0eWxlID0gIiNmZmYiOwogICAgICAgICAgICAgICAgICAgIGN0eC5maWxsUmVjdCgwLCAwLCBjYW52YXMud2lkdGgsIGNhbnZhcy5oZWlnaHQpOwogICAgICAgICAgICAgICAgICAgIGF3YWl0IHBhZ2UucmVuZGVyKHsgY2FudmFzQ29udGV4dDogY3R4LCB2aWV3cG9ydCB9KS5wcm9taXNlOwogICAgICAgICAgICAgICAgICAgIGNvbnN0IGRhdGFVcmwgPSBjYW52YXMudG9EYXRhVVJMKCJpbWFnZS9qcGVnIiwgMC45Nik7CiAgICAgICAgICAgICAgICAgICAgcGFnZXMucHVzaCh7IGRhdGFVcmwsIHdpZHRoOiBvcmlnaW5hbFZpZXdwb3J0LndpZHRoLCBoZWlnaHQ6IG9yaWdpbmFsVmlld3BvcnQuaGVpZ2h0LCBwYWdlTnVtYmVyOiBpIH0pOwogICAgICAgICAgICAgICAgICAgIGNvbnN0IGltZyA9IGRvY3VtZW50LmNyZWF0ZUVsZW1lbnQoImltZyIpOwogICAgICAgICAgICAgICAgICAgIGltZy5zcmMgPSBkYXRhVXJsOwogICAgICAgICAgICAgICAgICAgIGltZy5hbHQgPSBgUERGIHBhZ2UgJHtpfWA7CiAgICAgICAgICAgICAgICAgICAgaW1nLmNsYXNzTmFtZSA9ICJwZGYtcGFnZS1pbWFnZSI7CiAgICAgICAgICAgICAgICAgICAgaW1nLnN0eWxlLndpZHRoID0gIjEwMCUiOwogICAgICAgICAgICAgICAgICAgIGltZy5zdHlsZS5tYXhXaWR0aCA9ICIxMDAlIjsKICAgICAgICAgICAgICAgICAgICBwcmV2aWV3LmFwcGVuZENoaWxkKGltZyk7CiAgICAgICAgICAgICAgICAgICAgY2FudmFzLndpZHRoID0gY2FudmFzLmhlaWdodCA9IDE7CiAgICAgICAgICAgICAgICB9CgogICAgICAgICAgICAgICAgd2luZG93Ll9fYW1hcmthalBkZlBhZ2VzID0gcGFnZXM7CiAgICAgICAgICAgICAgICBkb2N1bWVudC5nZXRFbGVtZW50QnlJZCgncHJldmlld1dyYXBwZXInKS5jbGFzc0xpc3QucmVtb3ZlKCdoaWRkZW4nKTsKICAgICAgICAgICAgICAgIGRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCdhY3Rpb25BcmVhJykuaW5uZXJIVE1MID0gYAogICAgICAgICAgICAgICAgICAgIDxidXR0b24gb25jbGljaz0iZG93bmxvYWRXb3JkRG9jKCkiIGNsYXNzPSJ3LWZ1bGwgc206dy1hdXRvIHB4LTYgcHktMyBiZy1ibHVlLTYwMCBob3ZlcjpiZy1ibHVlLTcwMCB0ZXh0LXdoaXRlIGZvbnQtYm9sZCByb3VuZGVkLXhsIHNoYWRvdy1sZyB0cmFuc2l0aW9uIGZsZXggaXRlbXMtY2VudGVyIGp1c3RpZnktY2VudGVyIGdhcC0yIj4KICAgICAgICAgICAgICAgICAgICAgICAgPGkgY2xhc3M9ImZhLXNvbGlkIGZhLWZpbGUtd29yZCI+PC9pPjxzcGFuPldvcmQgKC5kb2MpIOCmoeCmvuCmieCmqOCmsuCni+CmoSDgppXgprDgp4Hgpqg8L3NwYW4+CiAgICAgICAgICAgICAgICAgICAgPC9idXR0b24+YDsKICAgICAgICAgICAgICAgIGhpZGVMb2FkZXIoKTsKICAgICAgICAgICAgICAgIHNob3dUb2FzdCgiUERGLeCmj+CmsCDgpq7gp4LgprIg4Kaq4KeD4Ka34KeN4Kag4Ka+LeCmheCmqOCngeCmquCmvuCmpCDgpqbgp4Pgprbgp43gpq/gpq7gpr7gpqjgpq3gpr7gpqzgp4cg4Kaw4Ka+4KaW4Ka+IOCmueCnn+Cnh+Cmm+Cnh+ClpCBBNCDgpqrgp43gprDgpr/gpqjgp43gpp/gp4cg4Kat4Ka/4Kao4KeN4KaoIOCmuOCmvuCmh+CmnOCnh+CmsCBQREYg4Kaq4KeD4Ka34KeN4Kag4Ka+IGZpdCDgprngpqTgp4cg4Kaq4Ka+4Kaw4KeHOyDgpp/gp4fgppXgp43gprjgpp8g4KaG4Kay4Ka+4Kam4Ka+4Kat4Ka+4Kas4KeHIGVkaXQg4KaV4Kaw4Ka+IOCmr+CmvuCmrOCnhyDgpqjgpr7gpaQiKTsKICAgICAgICAgICAgfSBjYXRjaCAoZXJyKSB7CiAgICAgICAgICAgICAgICBoaWRlTG9hZGVyKCk7CiAgICAgICAgICAgICAgICBzaG93VG9hc3QoIlBERiDgprDgpr/gpqEv4Kaw4KeH4Kao4KeN4Kah4Ka+4KawIOCmuOCmruCmuOCnjeCmr+CmvjogIiArIChlcnIubWVzc2FnZSB8fCBlcnIpLCAiZXJyb3IiKTsKICAgICAgICAgICAgfQogICAgICAgIH0KCiAgICAgICAgLy8gV29yZC1jb21wYXRpYmxlIC5kb2MgZXhwb3J0LiBQREYgaW5wdXQgdXNlcyBmdWxsLXBhZ2UgaW1hZ2VzIHRvIHByb3RlY3QgbGF5b3V0LgogICAgICAgIGZ1bmN0aW9uIGRvd25sb2FkV29yZERvYygpIHsKICAgICAgICAgICAgY29uc3QgcHJldmlldyA9IGRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCdvdXRwdXRQcmV2aWV3Jyk7CiAgICAgICAgICAgIGxldCBjb250ZW50ID0gIiI7CiAgICAgICAgICAgIGlmIChjdXJyZW50VGFiID09PSAicGRmVG9Xb3JkIiAmJiB3aW5kb3cuX19hbWFya2FqUGRmUGFnZXMgJiYgd2luZG93Ll9fYW1hcmthalBkZlBhZ2VzLmxlbmd0aCkgewogICAgICAgICAgICAgICAgY29udGVudCA9IHdpbmRvdy5fX2FtYXJrYWpQZGZQYWdlcy5tYXAoKHBhZ2UsIGluZGV4KSA9PiB7CiAgICAgICAgICAgICAgICAgICAgY29uc3Qgd2lkdGhQdCA9IE51bWJlcihwYWdlLndpZHRoKSB8fCA1OTUuMjg7CiAgICAgICAgICAgICAgICAgICAgY29uc3QgaGVpZ2h0UHQgPSBOdW1iZXIocGFnZS5oZWlnaHQpIHx8IDg0MS44OTsKICAgICAgICAgICAgICAgICAgICByZXR1cm4gYDxkaXYgY2xhc3M9ImFtYXJrYWotd29yZC1wYWdlIiBzdHlsZT0id2lkdGg6JHt3aWR0aFB0fXB0O2hlaWdodDoke2hlaWdodFB0fXB0O3BhZ2UtYnJlYWstYWZ0ZXI6JHtpbmRleCA9PT0gd2luZG93Ll9fYW1hcmthalBkZlBhZ2VzLmxlbmd0aCAtIDEgPyAnYXV0bycgOiAnYWx3YXlzJ307Ij4KICAgICAgICAgICAgICAgICAgICAgICAgPGltZyBzcmM9IiR7cGFnZS5kYXRhVXJsfSIgYWx0PSJQREYgcGFnZSAke2luZGV4ICsgMX0iIHN0eWxlPSJkaXNwbGF5OmJsb2NrO3dpZHRoOiR7d2lkdGhQdH1wdDtoZWlnaHQ6JHtoZWlnaHRQdH1wdDttYXgtd2lkdGg6bm9uZTtvYmplY3QtZml0OmZpbGw7bWFyZ2luOjA7cGFkZGluZzowO2JvcmRlcjowOyI+CiAgICAgICAgICAgICAgICAgICAgPC9kaXY+YDsKICAgICAgICAgICAgICAgIH0pLmpvaW4oIiIpOwogICAgICAgICAgICB9IGVsc2UgewogICAgICAgICAgICAgICAgY29udGVudCA9IHByZXZpZXcuaW5uZXJIVE1MOwogICAgICAgICAgICB9CiAgICAgICAgICAgIGNvbnN0IHBhZ2VTdHlsZXMgPSAoY3VycmVudFRhYiA9PT0gInBkZlRvV29yZCIgJiYgd2luZG93Ll9fYW1hcmthalBkZlBhZ2VzICYmIHdpbmRvdy5fX2FtYXJrYWpQZGZQYWdlcy5sZW5ndGgpCiAgICAgICAgICAgICAgICA/IHdpbmRvdy5fX2FtYXJrYWpQZGZQYWdlcy5tYXAoKHBhZ2UsIGluZGV4KSA9PgogICAgICAgICAgICAgICAgICAgIGBAcGFnZSBwYWdlJHtpbmRleCArIDF9IHsgc2l6ZTokeyhOdW1iZXIocGFnZS53aWR0aCkgfHwgNTk1LjI4KX1wdCAkeyhOdW1iZXIocGFnZS5oZWlnaHQpIHx8IDg0MS44OSl9cHQ7IG1hcmdpbjowOyB9YAogICAgICAgICAgICAgICAgICApLmpvaW4oIlxcbiIpCiAgICAgICAgICAgICAgICA6ICJAcGFnZSB7IHNpemU6MjFjbSAyOS43Y207IG1hcmdpbjowOyB9IjsKICAgICAgICAgICAgY29uc3QgaGVhZGVyID0gYDwhRE9DVFlQRSBodG1sPjxodG1sIHhtbG5zOm89InVybjpzY2hlbWFzLW1pY3Jvc29mdC1jb206b2ZmaWNlOm9mZmljZSIgeG1sbnM6dz0idXJuOnNjaGVtYXMtbWljcm9zb2Z0LWNvbTpvZmZpY2U6d29yZCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnL1RSL1JFQy1odG1sNDAiPgogICAgICAgICAgICA8aGVhZD48bWV0YSBjaGFyc2V0PSJ1dGYtOCI+PHRpdGxlPkRvY3VtZW50PC90aXRsZT48c3R5bGU+CiAgICAgICAgICAgICR7cGFnZVN0eWxlc30KICAgICAgICAgICAgaHRtbCxib2R5IHsgbWFyZ2luOjAgIWltcG9ydGFudDsgcGFkZGluZzowICFpbXBvcnRhbnQ7IGZvbnQtZmFtaWx5OkFyaWFsLCdOaXJtYWxhIFVJJyxzYW5zLXNlcmlmOyBjb2xvcjojMTExOyB9CiAgICAgICAgICAgIC5hbWFya2FqLXdvcmQtcGFnZSB7IG1hcmdpbjowICFpbXBvcnRhbnQ7IHBhZGRpbmc6MCAhaW1wb3J0YW50OyBvdmVyZmxvdzpoaWRkZW47IH0KICAgICAgICAgICAgdGFibGUgeyBib3JkZXItY29sbGFwc2U6Y29sbGFwc2U7IG1heC13aWR0aDoxMDAlOyB9CiAgICAgICAgICAgIHRkLHRoIHsgYm9yZGVyOjFweCBzb2xpZCAjOTk5OyBwYWRkaW5nOjVweDsgdmVydGljYWwtYWxpZ246dG9wOyB9CiAgICAgICAgICAgIGltZyB7IGRpc3BsYXk6YmxvY2s7IGJvcmRlcjowOyB9CiAgICAgICAgICAgIDwvc3R5bGU+PC9oZWFkPjxib2R5PiR7Y29udGVudH08L2JvZHk+PC9odG1sPmA7CiAgICAgICAgICAgIGNvbnN0IGJsb2IgPSBuZXcgQmxvYihbIlx1ZmVmZiIsIGhlYWRlcl0sIHsgdHlwZTogImFwcGxpY2F0aW9uL21zd29yZCIgfSk7CiAgICAgICAgICAgIGNvbnN0IHVybCA9IFVSTC5jcmVhdGVPYmplY3RVUkwoYmxvYik7CiAgICAgICAgICAgIGNvbnN0IGEgPSBkb2N1bWVudC5jcmVhdGVFbGVtZW50KCJhIik7CiAgICAgICAgICAgIGEuaHJlZiA9IHVybDsKICAgICAgICAgICAgYS5kb3dubG9hZCA9IChjdXJyZW50RmlsZU5hbWUgfHwgImRvY3VtZW50IikgKyAiLmRvYyI7CiAgICAgICAgICAgIGRvY3VtZW50LmJvZHkuYXBwZW5kQ2hpbGQoYSk7CiAgICAgICAgICAgIGEuY2xpY2soKTsKICAgICAgICAgICAgYS5yZW1vdmUoKTsKICAgICAgICAgICAgc2V0VGltZW91dCgoKSA9PiBVUkwucmV2b2tlT2JqZWN0VVJMKHVybCksIDE1MDApOwogICAgICAgICAgICBzaG93VG9hc3QoIldvcmQtY29tcGF0aWJsZSDgpqvgpr7gpofgprIg4Kah4Ka+4KaJ4Kao4Kay4KeL4KahIOCmtuCngeCmsOCngSDgprngp5/gp4fgppvgp4fgpaQiKTsKICAgICAgICB9CgogICAgICAgIC8vIENvcHkgVGV4dAogICAgICAgIGZ1bmN0aW9uIGNvcHlFeHRyYWN0ZWRUZXh0KCkgewogICAgICAgICAgICBjb25zdCBwcmV2aWV3ID0gZG9jdW1lbnQuZ2V0RWxlbWVudEJ5SWQoJ291dHB1dFByZXZpZXcnKTsKICAgICAgICAgICAgY29uc3QgdGV4dCA9IHByZXZpZXcuaW5uZXJUZXh0IHx8IHByZXZpZXcudGV4dENvbnRlbnQgfHwgIiI7CgogICAgICAgICAgICBpZiAoIXRleHQudHJpbSgpKSB7CiAgICAgICAgICAgICAgICBzaG93VG9hc3QoIuCmleCmquCmvyDgppXgprDgpr7gprAg4Kau4Kak4KeLIOCmn+Cnh+CmleCnjeCmuOCmnyDgpqjgp4fgpochIiwgImVycm9yIik7CiAgICAgICAgICAgICAgICByZXR1cm47CiAgICAgICAgICAgIH0KCiAgICAgICAgICAgIG5hdmlnYXRvci5jbGlwYm9hcmQud3JpdGVUZXh0KHRleHQpLnRoZW4oKCkgPT4gewogICAgICAgICAgICAgICAgc2hvd1RvYXN0KCLgpp/gp4fgppXgp43gprjgpp8g4KaV4KeN4Kay4Ka/4Kaq4Kas4KeL4Kaw4KeN4Kah4KeHIOCmleCmquCmvyDgppXgprDgpr4g4Ka54Kav4Ka84KeH4Kab4KeHISIpOwogICAgICAgICAgICB9KS5jYXRjaCgoKSA9PiB7CiAgICAgICAgICAgICAgICBzaG93VG9hc3QoIuCmleCmquCmvyDgppXgprDgpr4g4Ka44Kau4KeN4Kat4KasIOCmueCmr+CmvOCmqOCmvyEiLCAiZXJyb3IiKTsKICAgICAgICAgICAgfSk7CiAgICAgICAgfQogICAgPC9zY3JpcHQ+CjwvYm9keT4KPC9odG1sPg==';
+function loadLegacy(){try{let bin=atob(LEGACY),bytes=Uint8Array.from(bin,c=>c.charCodeAt(0));$('legacyFrame').srcdoc=new TextDecoder().decode(bytes)}catch(e){$('legacyFrame').srcdoc='<p>Original converter load failed.</p>'}}
+drawServices();loadConfig();loadLegacy();
+</script>
+</body></html>
